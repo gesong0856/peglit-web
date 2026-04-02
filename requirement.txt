@@ -1,0 +1,8 @@
+flask
+flask-cors
+scikit-learn
+scipy
+pandas
+tqdm
+viennarna
+numpy
