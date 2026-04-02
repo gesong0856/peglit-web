@@ -1,1 +1,4 @@
-
+streamlit==1.35.0
+viennarna-bin==2.6.4
+numpy==1.26.4
+pandas==2.2.2
