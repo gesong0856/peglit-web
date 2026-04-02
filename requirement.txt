@@ -1,8 +1,4 @@
-flask
-flask-cors
-scikit-learn
-scipy
-pandas
-tqdm
-viennarna
-numpy
+streamlit==1.35.0
+viennarna==2.6.4
+numpy==1.26.4
+pandas==2.2.2
