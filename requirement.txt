@@ -1,4 +1,6 @@
 streamlit==1.35.0
+--extra-index-url https://pypi.org/simple/
+--extra-index-url https://conda.anaconda.org/bioconda/
 viennarna==2.6.4
 numpy==1.26.4
 pandas==2.2.2
