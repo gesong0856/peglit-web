@@ -1,0 +1,12 @@
+name: peglit
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.10
+  - pip
+  - viennarna=2.6.4
+  - numpy
+  - pandas
+  - pip:
+    - streamlit==1.35.0
