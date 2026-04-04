@@ -321,6 +321,7 @@ if st.button("START", type="primary"):
                 linker = r.get("linker", DEFAULT_SEQ["linker"])
                 
                 # 调用工具
+                st.write(f"正在计算 Row {i+1}...")
                 result = peglit_min.pegLIT(
                     seq_spacer=spacer,
                     seq_scaffold=scaffold,
@@ -341,7 +342,7 @@ if st.button("START", type="primary"):
                     seed=2020,
                     sequences_to_avoid=None
                 )
-                
+                st.write(f"算法返回的原始结果: {result}")
                 # ========== 核心修复：兼容字符串/列表/字典所有返回格式 ==========
                 new_linker = DEFAULT_SEQ["linker"]  # 默认值
                 if isinstance(result, str):
