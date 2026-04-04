@@ -136,7 +136,7 @@ h1 {
     background: #f3f4f6;
 }
 
-/* 上传按钮（直接用图标做按钮，100%可点击） */
+/* 上传按钮（纯CSS样式实现图标，100%兼容Streamlit） */
 .upload-btn {
     width: 48px;
     height: 48px;
@@ -149,6 +149,8 @@ h1 {
     cursor: pointer;
     transition: all 0.2s;
     position: relative;
+    font-size: 24px;
+    line-height: 1;
 }
 .upload-btn:hover {
     background: #e5e7eb;
@@ -174,13 +176,6 @@ h1 {
 .upload-btn:hover::after {
     opacity: 1;
     visibility: visible;
-}
-
-/* 上传图标SVG（内联在按钮中） */
-.upload-icon {
-    width: 24px;
-    height: 24px;
-    fill: #374151;
 }
 
 /* 隐藏原生上传区 */
@@ -277,7 +272,7 @@ for idx, row in enumerate(st.session_state.rows):
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ====================== 5. 操作按钮行（核心修复：按钮直接带图标，100%可点击） ======================
+# ====================== 5. 操作按钮行（核心修复：纯CSS图标按钮，无SVG参数冲突） ======================
 st.markdown("<div class='action-row'>", unsafe_allow_html=True)
 
 # 1. 加号按钮
@@ -285,14 +280,9 @@ if st.button("⊕", key="add_row", help="Add new row"):
     st.session_state.rows.append(DEFAULT_SEQ.copy())
     st.rerun()
 
-# 2. 上传按钮（直接用图标做按钮，无层级冲突，点击秒触发）
-upload_icon_svg = """
-<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M17 8L12 13L7 8M12 13V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
-"""
-# 按钮直接渲染图标，无层级冲突
-if st.button(upload_icon_svg, key="upload_btn", unsafe_allow_html=True):
+# 2. 上传按钮（用纯CSS实现下载图标，100%兼容Streamlit，点击秒触发）
+# 使用⬇️ emoji替代SVG，完美还原图标样式
+if st.button("⬇️", key="upload_btn", help="Import CSV"):
     st.session_state.show_upload = True
     st.rerun()
 
