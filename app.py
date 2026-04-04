@@ -20,8 +20,6 @@ DEFAULT_SEQ = {
 
 if "rows" not in st.session_state:
     st.session_state.rows = [DEFAULT_SEQ.copy()]
-if "show_upload" not in st.session_state:
-    st.session_state.show_upload = False
 
 # ====================== 2. 全局样式 ======================
 st.markdown("""
@@ -136,25 +134,40 @@ h1 {
     background: #f3f4f6;
 }
 
-/* 上传按钮（样式还原+可点击） */
-.upload-btn {
+/* 上传按钮（直接用文件框做按钮，100%可点击） */
+/* 隐藏文件框的默认label和边框，只保留图标样式 */
+div[data-testid="stFileUploader"] {
     width: 48px;
     height: 48px;
     border-radius: 12px;
-    border: 1px solid transparent;
-    background: #f3f4f6;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    border: 1px solid #d1d5db;
+    background: white;
+    overflow: hidden;
+    position: relative;
     cursor: pointer;
     transition: all 0.2s;
-    position: relative;
 }
-.upload-btn:hover {
-    background: #e5e7eb;
+div[data-testid="stFileUploader"]:hover {
+    border-color: #3b82f6;
+    background: #f3f4f6;
+}
+/* 隐藏文件框的默认文字和按钮 */
+div[data-testid="stFileUploader"] > div {
+    display: none !important;
+}
+/* 用CSS添加上传图标 */
+div[data-testid="stFileUploader"]::after {
+    content: "⬆️";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    color: #374151;
+    pointer-events: none;
 }
 /* hover提示 */
-.upload-btn::after {
+div[data-testid="stFileUploader"]::before {
     content: "Import CSV";
     position: absolute;
     bottom: 120%;
@@ -170,8 +183,9 @@ h1 {
     visibility: hidden;
     transition: opacity 0.2s ease-in-out;
     z-index: 999;
+    pointer-events: none;
 }
-.upload-btn:hover::after {
+div[data-testid="stFileUploader"]:hover::before {
     opacity: 1;
     visibility: visible;
 }
@@ -188,11 +202,6 @@ h1 {
 .stButton>button[kind="primary"]:hover {
     background-color: #1d4ed8; /* 深蓝色（hover） */
     color: white !important;
-}
-
-/* 隐藏原生上传区 */
-div[data-testid="stFileUploader"] {
-    display: none !important;
 }
 
 /* 隐藏默认元素 */
@@ -267,7 +276,7 @@ for idx, row in enumerate(st.session_state.rows):
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ====================== 5. 操作按钮行（核心修复：按钮+文件框联动） ======================
+# ====================== 5. 操作按钮行（核心修复：直接用文件框做按钮） ======================
 st.markdown("<div class='action-row'>", unsafe_allow_html=True)
 
 # 1. 加号按钮
@@ -275,33 +284,21 @@ if st.button("⊕", key="add_row", help="Add new row"):
     st.session_state.rows.append(DEFAULT_SEQ.copy())
     st.rerun()
 
-# 2. 上传按钮（点击直接显示文件选择框，无需JS，彻底避免语法错误）
-if st.button("⬆️", key="upload_btn", help="Import CSV"):
-    # 点击按钮后，强制显示文件选择框
-    st.session_state.show_upload = True
+# 2. 上传按钮（直接用st.file_uploader，CSS美化成图标，100%可点击）
+uploaded_file = st.file_uploader("Upload CSV", type="csv", label_visibility="collapsed", key="csv_upload")
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
+    df.columns = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
+    # 批量导入到现有行
+    for i, row in df.iterrows():
+        if i < len(st.session_state.rows):
+            st.session_state.rows[i] = row.to_dict()
+    st.success("✅ CSV imported successfully!")
     st.rerun()
 
 st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ====================== 6. 文件上传组件（核心修复：状态控制渲染） ======================
-# 只有show_upload为True时，才渲染文件选择框，确保点击后弹出
-if st.session_state.show_upload:
-    # 使用st.expander显式显示文件选择框，避免隐藏导致的渲染问题
-    with st.expander("Upload CSV", expanded=True):
-        uploaded_file = st.file_uploader("Choose CSV file", type="csv", key="csv_upload")
-        if uploaded_file is not None:
-            df = pd.read_csv(uploaded_file)
-            df.columns = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
-            # 批量导入到现有行
-            for i, row in df.iterrows():
-                if i < len(st.session_state.rows):
-                    st.session_state.rows[i] = row.to_dict()
-            st.success("✅ CSV imported successfully!")
-            # 导入后自动关闭上传框
-            st.session_state.show_upload = False
-            st.rerun()
-
-# ====================== 7. START按钮 ======================
+# ====================== 6. START按钮 ======================
 st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
 if st.button("START", type="primary"):
     with st.spinner("🔄 Running... Please wait"):
