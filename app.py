@@ -20,9 +20,6 @@ DEFAULT_SEQ = {
 
 if "rows" not in st.session_state:
     st.session_state.rows = [DEFAULT_SEQ.copy()]
-# 新增：初始化存储计算结果的状态，用于额外展示
-if "calculated_linkers" not in st.session_state:
-    st.session_state.calculated_linkers = []
 
 # ====================== 2. 全局样式 ======================
 st.markdown("""
@@ -203,33 +200,6 @@ div[data-testid="stFileUploader"]:hover::before {
     color: white !important;
 }
 
-/* 新增：额外展示linker的样式 */
-.linker-result-card {
-    max-width: 1200px;
-    margin: 2rem auto;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 1.5rem;
-    background: #f9fafb;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-.linker-result-title {
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: #1f2937;
-    margin-bottom: 1rem;
-    border-bottom: 1px solid #e5e7eb;
-    padding-bottom: 0.8rem;
-}
-.linker-result-item {
-    font-size: 1.1rem;
-    color: #1e40af; /* 深蓝 */
-    margin: 0.8rem 0;
-    padding: 0.5rem;
-    background: white;
-    border-radius: 6px;
-}
-
 /* 隐藏默认元素 */
 #MainMenu, footer, header {visibility: hidden;}
 </style>
@@ -341,8 +311,6 @@ st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
 if st.button("START", type="primary"):
     with st.spinner("🔄 Running... Please wait"):
         try:
-            # 新增：清空历史计算结果
-            st.session_state.calculated_linkers = []
             for i, r in enumerate(st.session_state.rows):
                 # 关键修复：每个键都做兜底，避免缺失
                 spacer = r.get("spacer", DEFAULT_SEQ["spacer"])
@@ -393,11 +361,6 @@ if st.button("START", type="primary"):
                 
                 # 更新linker并提示
                 st.session_state.rows[i]["linker"] = new_linker
-                # 新增：将计算结果存入状态，用于额外展示
-                st.session_state.calculated_linkers.append({
-                    "row_num": i+1,
-                    "linker": new_linker
-                })
                 if new_linker == DEFAULT_SEQ["linker"]:
                     st.warning(f"Row {i+1}: No valid linker result, keeping default (NNNNNNNN).")
                 else:
@@ -410,15 +373,3 @@ if st.button("START", type="primary"):
             st.exception(e)
 
 st.markdown("</div>", unsafe_allow_html=True)
-
-# ====================== 新增：额外展示Linker结果区域 ======================
-if st.session_state.calculated_linkers:
-    st.markdown("<div class='linker-result-card'>", unsafe_allow_html=True)
-    st.markdown("<div class='linker-result-title'>📊 Calculated Linker Results</div>", unsafe_allow_html=True)
-    for item in st.session_state.calculated_linkers:
-        st.markdown(f"""
-        <div class='linker-result-item'>
-            Row {item['row_num']}: <strong>Linker = {item['linker']}</strong>
-        </div>
-        """, unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
