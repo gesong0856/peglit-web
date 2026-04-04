@@ -276,15 +276,15 @@ for idx, row in enumerate(st.session_state.rows):
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ====================== 5. 操作按钮行 ======================
+# ====================== 5. 操作按钮行（修复按钮参数错误） ======================
 st.markdown("<div class='action-row'>", unsafe_allow_html=True)
 
-# 加号按钮
+# 1. 加号按钮
 if st.button("⊕", key="add_row", help="Add new row"):
     st.session_state.rows.append(DEFAULT_SEQ.copy())
     st.rerun()
 
-# 上传图标按钮
+# 2. 上传图标按钮（用空label+隐藏，避免参数冲突）
 upload_svg = """
 <div class="upload-btn">
     <svg class="upload-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -294,8 +294,8 @@ upload_svg = """
 """
 st.markdown(upload_svg, unsafe_allow_html=True)
 
-# 点击触发上传
-if st.button("", key="upload_btn", label_visibility="collapsed"):
+# 【核心修复】用None作为label，避免空字符串冲突
+if st.button(None, key="upload_btn", label_visibility="collapsed"):
     st.session_state.show_upload = True
     st.rerun()
 
