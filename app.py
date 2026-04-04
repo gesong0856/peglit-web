@@ -12,7 +12,7 @@ if "rows" not in st.session_state:
         {"spacer": "", "scaffold": "GTTTTAG...", "template": "", "pbs": "", "linker": "NNNNNNNN", "motif": "tevopreQ₁"}
     ]
 
-# 全局样式（彻底隐藏上传区+修复样式）
+# 全局样式（终极隐藏上传区+修复空标签）
 st.markdown("""
 <style>
 /* 全局重置 */
@@ -82,7 +82,7 @@ h1 {
     background-repeat: repeat-x;
 }
 
-/* 输入框样式（修复空标签问题） */
+/* 输入框样式（修复空标签） */
 .table-input-row input {
     width: 100%;
     border: none !important;
@@ -138,14 +138,31 @@ h1 {
     fill: #3b82f6;
 }
 
-/* 🔥 彻底隐藏原生上传区 */
-.stFileUploader {
+/* 🔥 终极隐藏原生上传区：多层级+高优先级 */
+div[data-testid="stFileUploader"] {
     display: none !important;
     visibility: hidden !important;
     height: 0 !important;
+    min-height: 0 !important;
     width: 0 !important;
+    min-width: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    z-index: -9999 !important;
+}
+div[data-testid="stFileUploaderDropzone"] {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
+}
+[class*="stFileUploader"] {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
 }
 
 /* START按钮 */
@@ -182,7 +199,7 @@ linkers between a pegRNA and 3' motif.
 </div>
 """, unsafe_allow_html=True)
 
-# 表格渲染
+# 表格
 st.markdown("<div class='table-card'>", unsafe_allow_html=True)
 
 # 表头
@@ -197,13 +214,12 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 输入行（修复空标签：用隐形label代替空字符串）
+# 输入行（修复空标签）
 updated_rows = []
 for idx, row in enumerate(st.session_state.rows):
     st.markdown("<div class='table-input-row'>", unsafe_allow_html=True)
     cols = st.columns([1, 1.5, 1.5, 1, 1, 1.5])
     
-    # 给每个输入框加隐形label，避免空标签警告
     updated_row = {
         "spacer": cols[0].text_input(f"spacer_{idx}", value=row["spacer"], label_visibility="collapsed"),
         "scaffold": cols[1].text_input(f"scaffold_{idx}", value=row["scaffold"], label_visibility="collapsed"),
@@ -221,7 +237,7 @@ col_add, col_csv, _ = st.columns([0.5, 0.5, 5])
 
 # 加号按钮
 with col_add:
-    if st.button("⊕", key=f"add_row_{len(st.session_state.rows)}", help="Add row"):
+    if st.button("⊕", key=f"add_{idx}", help="Add row"):
         st.session_state.rows.append({
             "spacer": "", "scaffold": "", "template": "", "pbs": "", "linker": "NNNNNNNN", "motif": ""
         })
@@ -229,13 +245,12 @@ with col_add:
 
 # 下载图标+上传功能
 with col_csv:
-    # 下载图标SVG
     st.markdown("""
     <svg class="download-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M17 8L12 13L7 8M12 13V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
     """, unsafe_allow_html=True)
-    # 隐藏式上传（加隐形label，避免空标签警告）
+    # 隐藏式上传
     uploaded_file = st.file_uploader("csv_upload", type="csv", label_visibility="collapsed", key="csv_upload")
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
@@ -250,7 +265,6 @@ st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
 if st.button("START", type="primary"):
     with st.spinner("🔄 Running... Please wait"):
         try:
-            # 批量计算
             for i, row in enumerate(updated_rows):
                 result = peglit_min.pegLIT(
                     seq_spacer=row["spacer"],
@@ -260,7 +274,6 @@ if st.button("START", type="primary"):
                     seq_motif=row["motif"],
                     linker_pattern=row["linker"]
                 )
-                # 写入最优结果
                 updated_rows[i]["linker"] = result.iloc[0]['linker']
             
             st.session_state.rows = updated_rows
