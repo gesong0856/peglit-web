@@ -234,15 +234,27 @@ for idx, row in enumerate(st.session_state.rows):
     updated_rows.append(updated_row)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# 操作按钮行
+# 操作按钮行：加号 + Import CSV 图标
 st.markdown("<div class='action-row'>", unsafe_allow_html=True)
-col_add, _, _, _, _, _ = st.columns([1, 1.5, 1.5, 1, 1.1, 1.6])
+col_add, col_csv, _ = st.columns([auto, auto, 1])
+
+# 圆圈加号：添加行
 with col_add:
     if st.button("⊕", key="add_row", help="Add row"):
         st.session_state.rows.append({
             "spacer": "", "scaffold": "", "template": "", "pbs": "", "linker": "NNNNNNNN", "motif": ""
         })
         st.rerun()
+
+# Import CSV 图标：上传文件
+with col_csv:
+    uploaded_file = st.file_uploader("⬆️", type="csv", label_visibility="collapsed", key="csv_upload")
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
+        df.columns = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
+        st.session_state.rows = df.to_dict("records")
+        st.rerun()
+
 st.markdown("</div></div>", unsafe_allow_html=True)
 
 # ================== START按钮 ==================
