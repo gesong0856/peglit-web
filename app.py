@@ -176,9 +176,9 @@ h1 {
     visibility: visible;
 }
 
-/* START按钮（修改颜色在这里） */
+/* START按钮（已改为蓝色） */
 .stButton>button[kind="primary"] {
-    background-color: #ef4444; /* 改为红色，可自定义 */
+    background-color: #2563eb; /* 蓝色 */
     color: white !important;
     border: none !important;
     border-radius: 12px !important;
@@ -186,7 +186,7 @@ h1 {
     font-size: 1.2rem !important;
 }
 .stButton>button[kind="primary"]:hover {
-    background-color: #dc2626; /* hover态深色 */
+    background-color: #1d4ed8; /* 深蓝色（hover） */
     color: white !important;
 }
 
@@ -276,7 +276,7 @@ if st.button("⊕", key="add_row", help="Add new row"):
     st.rerun()
 
 # 2. 上传按钮（点击触发文件选择）
-if st.button("⬇️", key="upload_btn", help="Import CSV"):
+if st.button("⬆️", key="upload_btn", help="Import CSV"):
     st.session_state.show_upload = True
     st.rerun()
 
@@ -295,7 +295,7 @@ if st.session_state.show_upload:
         st.session_state.show_upload = False
         st.rerun()
 
-# ====================== 7. START按钮（核心修复：处理pegLIT返回值） ======================
+# ====================== 7. START按钮 ======================
 st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
 if st.button("START", type="primary"):
     with st.spinner("🔄 Running... Please wait"):
