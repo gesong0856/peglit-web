@@ -57,40 +57,54 @@ h1 {
     background: white;
 }
 
-/* 表头行 */
+/* 表头行：完美居中+单元格内对齐+零错位 */
 .table-header {
     display: grid;
-    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1.1fr 1.6fr;
+    /* 与输入行grid-template-columns完全一致，保证列宽对齐 */
+    grid-template-columns: 1fr 1.6fr 1.6fr 1fr 1.1fr 1.6fr;
+    gap: 0; /* 取消gap，让竖线精准分割 */
     background-color: #ffffff;
-    padding: 1rem 1rem;
+    padding: 1.25rem 0; /* 取消左右内边距，让文字在单元格内居中 */
     font-weight: 500;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     border-bottom: 1px solid #e5e7eb;
-    /* 竖线分割 */
+    /* 竖线分割，精准对应每列 */
     background-image: linear-gradient(to right, #e5e7eb 1px, transparent 1px);
     background-size: calc(100% / 6) 100%;
     background-repeat: repeat-x;
 }
 
-/* 输入行：输入框即单元格 */
+/* 表头内文字：单元格内居中对齐 */
+.table-header > div {
+    padding: 0 1rem; /* 给文字加左右内边距，避免贴边 */
+    text-align: left; /* 左对齐，和输入框文字完全对齐 */
+    line-height: 1.5;
+}
+
+/* 输入行：与表头完全同步，保证零错位 */
 .table-input-row {
     display: grid;
-    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1.1fr 1.6fr;
+    grid-template-columns: 1fr 1.6fr 1.6fr 1fr 1.1fr 1.6fr;
+    gap: 0; /* 与表头gap一致，竖线精准对齐 */
     border-bottom: 1px solid #e5e7eb;
-    /* 竖线分割，和表头一致 */
+    align-items: center;
+    /* 竖线分割，与表头完全一致 */
     background-image: linear-gradient(to right, #e5e7eb 1px, transparent 1px);
     background-size: calc(100% / 6) 100%;
     background-repeat: repeat-x;
 }
 
-/* 输入框样式：完全融入单元格 */
+/* 输入框样式：单元格内对齐，与表头文字同步 */
 .table-input-row input {
     width: 100%;
-    border: none !important;
-    outline: none !important;
+    border: none;
+    outline: none;
     font-size: 1.1rem;
-    padding: 0.8rem 1rem;
-    background-color: transparent !important;
+    padding: 0.75rem 1rem; /* 与表头文字内边距一致，保证上下对齐 */
+    background-color: transparent;
+    line-height: 1.5;
+    text-align: left;
+}
     /* 去掉输入框默认样式 */
     -webkit-appearance: none;
     appearance: none;
