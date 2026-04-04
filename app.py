@@ -18,11 +18,10 @@ DEFAULT_SEQ = {
     "motif": "TTGACGCGGTTCTATCTAGTTACGCGTTAAACCAACTAGAAA"
 }
 
-# 初始化上传状态
-if "show_upload" not in st.session_state:
-    st.session_state.show_upload = False
 if "rows" not in st.session_state:
     st.session_state.rows = [DEFAULT_SEQ.copy()]
+if "show_upload" not in st.session_state:
+    st.session_state.show_upload = False
 
 # ====================== 2. 全局样式 ======================
 st.markdown("""
@@ -177,6 +176,25 @@ h1 {
     visibility: visible;
 }
 
+/* START按钮（修改颜色在这里） */
+.stButton>button[kind="primary"] {
+    background-color: #ef4444; /* 改为红色，可自定义 */
+    color: white !important;
+    border: none !important;
+    border-radius: 12px !important;
+    padding: 0.8rem 2.5rem !important;
+    font-size: 1.2rem !important;
+}
+.stButton>button[kind="primary"]:hover {
+    background-color: #dc2626; /* hover态深色 */
+    color: white !important;
+}
+
+/* 隐藏原生上传区 */
+div[data-testid="stFileUploader"] {
+    display: none !important;
+}
+
 /* 隐藏默认元素 */
 #MainMenu, footer, header {visibility: hidden;}
 </style>
@@ -249,7 +267,7 @@ for idx, row in enumerate(st.session_state.rows):
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ====================== 5. 操作按钮行（核心修复：上传按钮+文件选择框联动） ======================
+# ====================== 5. 操作按钮行（上传按钮） ======================
 st.markdown("<div class='action-row'>", unsafe_allow_html=True)
 
 # 1. 加号按钮
@@ -257,40 +275,34 @@ if st.button("⊕", key="add_row", help="Add new row"):
     st.session_state.rows.append(DEFAULT_SEQ.copy())
     st.rerun()
 
-# 2. 上传按钮（点击直接触发文件选择框，无需额外状态）
-# 【关键修复】直接渲染文件选择框，用按钮控制显示/隐藏，确保点击秒弹出
-upload_col, _ = st.columns([0.1, 0.9])
-with upload_col:
-    # 按钮样式还原上传图标，点击切换显示状态
-    if st.button("⬆️", key="upload_btn", help="Import CSV"):
-        st.session_state.show_upload = not st.session_state.show_upload
-        st.rerun()
+# 2. 上传按钮（点击触发文件选择）
+if st.button("⬇️", key="upload_btn", help="Import CSV"):
+    st.session_state.show_upload = True
+    st.rerun()
 
 st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ====================== 6. 文件上传组件（核心修复：状态控制渲染） ======================
-# 只有show_upload为True时，才渲染文件选择框，确保点击后弹出
+# ====================== 6. 文件上传组件 ======================
 if st.session_state.show_upload:
-    with st.expander("Upload CSV", expanded=True):
-        uploaded_file = st.file_uploader("Choose CSV file", type="csv", key="csv_upload")
-        if uploaded_file is not None:
-            df = pd.read_csv(uploaded_file)
-            df.columns = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
-            # 批量导入到现有行
-            for i, row in df.iterrows():
-                if i < len(st.session_state.rows):
-                    st.session_state.rows[i] = row.to_dict()
-            st.success("✅ CSV imported successfully!")
-            # 导入后自动关闭上传框
-            st.session_state.show_upload = False
-            st.rerun()
+    uploaded_file = st.file_uploader("Upload CSV", type="csv", label_visibility="collapsed", key="csv_upload")
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
+        df.columns = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
+        for i, row in df.iterrows():
+            if i < len(st.session_state.rows):
+                st.session_state.rows[i] = row.to_dict()
+        st.success("✅ CSV imported successfully!")
+        st.session_state.show_upload = False
+        st.rerun()
 
-# ====================== 7. START按钮 ======================
+# ====================== 7. START按钮（核心修复：处理pegLIT返回值） ======================
 st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
 if st.button("START", type="primary"):
     with st.spinner("🔄 Running... Please wait"):
         try:
+            # 遍历每一行计算
             for i, r in enumerate(st.session_state.rows):
+                # 调用pegLIT工具
                 result = peglit_min.pegLIT(
                     seq_spacer=r["spacer"],
                     seq_scaffold=r["scaffold"],
@@ -299,10 +311,21 @@ if st.button("START", type="primary"):
                     seq_motif=r["motif"],
                     linker_pattern=r["linker"]
                 )
-                st.session_state.rows[i]["linker"] = result[0]["linker"]
+                # 【核心修复】判断返回值类型，避免字符串下标错误
+                if isinstance(result, list) and len(result) > 0:
+                    # 返回列表，取第一个元素的linker
+                    st.session_state.rows[i]["linker"] = result[0].get("linker", "NNNNNNNN")
+                elif isinstance(result, dict):
+                    # 返回字典，直接取linker
+                    st.session_state.rows[i]["linker"] = result.get("linker", "NNNNNNNN")
+                else:
+                    # 其他情况，保留默认值
+                    st.warning(f"Row {i+1}: No valid linker result, keeping default.")
             st.success("✅ Calculation completed!")
             st.rerun()
         except Exception as e:
             st.error(f"❌ Error: {str(e)}")
+            # 打印详细错误日志，方便排查
+            st.exception(e)
 
 st.markdown("</div>", unsafe_allow_html=True)
