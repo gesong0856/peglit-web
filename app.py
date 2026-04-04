@@ -18,10 +18,11 @@ DEFAULT_SEQ = {
     "motif": "TTGACGCGGTTCTATCTAGTTACGCGTTAAACCAACTAGAAA"
 }
 
-if "rows" not in st.session_state:
-    st.session_state.rows = [DEFAULT_SEQ.copy()]
+# 初始化上传状态
 if "show_upload" not in st.session_state:
     st.session_state.show_upload = False
+if "rows" not in st.session_state:
+    st.session_state.rows = [DEFAULT_SEQ.copy()]
 
 # ====================== 2. 全局样式 ======================
 st.markdown("""
@@ -136,7 +137,7 @@ h1 {
     background: #f3f4f6;
 }
 
-/* 上传按钮（纯CSS样式实现图标，100%兼容Streamlit） */
+/* 上传按钮（样式还原+可点击） */
 .upload-btn {
     width: 48px;
     height: 48px;
@@ -149,8 +150,6 @@ h1 {
     cursor: pointer;
     transition: all 0.2s;
     position: relative;
-    font-size: 24px;
-    line-height: 1;
 }
 .upload-btn:hover {
     background: #e5e7eb;
@@ -176,28 +175,6 @@ h1 {
 .upload-btn:hover::after {
     opacity: 1;
     visibility: visible;
-}
-
-/* 隐藏原生上传区 */
-div[data-testid="stFileUploader"] {
-    display: none !important;
-}
-
-/* START按钮 */
-.start-btn-container {
-    text-align: center;
-    margin: 1rem 0 2rem;
-}
-.stButton>button[kind="primary"] {
-    background-color: #3b82f6 !important;
-    color: white !important;
-    border: none !important;
-    border-radius: 8px !important;
-    padding: 0.8rem 2.5rem !important;
-    font-size: 1.2rem !important;
-}
-.stButton>button[kind="primary"]:hover {
-    background-color: #2563eb !important;
 }
 
 /* 隐藏默认元素 */
@@ -272,7 +249,7 @@ for idx, row in enumerate(st.session_state.rows):
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ====================== 5. 操作按钮行（核心修复：纯CSS图标按钮，无SVG参数冲突） ======================
+# ====================== 5. 操作按钮行（核心修复：上传按钮+文件选择框联动） ======================
 st.markdown("<div class='action-row'>", unsafe_allow_html=True)
 
 # 1. 加号按钮
@@ -280,25 +257,33 @@ if st.button("⊕", key="add_row", help="Add new row"):
     st.session_state.rows.append(DEFAULT_SEQ.copy())
     st.rerun()
 
-# 2. 上传按钮（用纯CSS实现下载图标，100%兼容Streamlit，点击秒触发）
-# 使用⬇️ emoji替代SVG，完美还原图标样式
-if st.button("⬇️", key="upload_btn", help="Import CSV"):
-    st.session_state.show_upload = True
-    st.rerun()
+# 2. 上传按钮（点击直接触发文件选择框，无需额外状态）
+# 【关键修复】直接渲染文件选择框，用按钮控制显示/隐藏，确保点击秒弹出
+upload_col, _ = st.columns([0.1, 0.9])
+with upload_col:
+    # 按钮样式还原上传图标，点击切换显示状态
+    if st.button("⬇️", key="upload_btn", help="Import CSV"):
+        st.session_state.show_upload = not st.session_state.show_upload
+        st.rerun()
 
 st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ====================== 6. 隐藏式上传 ======================
+# ====================== 6. 文件上传组件（核心修复：状态控制渲染） ======================
+# 只有show_upload为True时，才渲染文件选择框，确保点击后弹出
 if st.session_state.show_upload:
-    uploaded_file = st.file_uploader("Upload CSV", type="csv", label_visibility="collapsed", key="csv_upload")
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-        df.columns = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
-        for i, row in df.iterrows():
-            if i < len(st.session_state.rows):
-                st.session_state.rows[i] = row.to_dict()
-        st.session_state.show_upload = False
-        st.rerun()
+    with st.expander("Upload CSV", expanded=True):
+        uploaded_file = st.file_uploader("Choose CSV file", type="csv", key="csv_upload")
+        if uploaded_file is not None:
+            df = pd.read_csv(uploaded_file)
+            df.columns = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
+            # 批量导入到现有行
+            for i, row in df.iterrows():
+                if i < len(st.session_state.rows):
+                    st.session_state.rows[i] = row.to_dict()
+            st.success("✅ CSV imported successfully!")
+            # 导入后自动关闭上传框
+            st.session_state.show_upload = False
+            st.rerun()
 
 # ====================== 7. START按钮 ======================
 st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
