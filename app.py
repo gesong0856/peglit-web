@@ -127,47 +127,60 @@ h1 {
     justify-content: center;
     cursor: pointer;
     transition: all 0.2s;
+    /* 给加号按钮也加提示 */
+    position: relative;
 }
 .add-btn:hover {
     border-color: #3b82f6;
     color: #3b82f6;
     background: #f3f4f6;
 }
+.add-btn::after {
+    content: "Add Row";
+    position: absolute;
+    bottom: 120%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: white;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease-in-out;
+    z-index: 999;
+    pointer-events: none;
+}
+.add-btn:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
 
-/* 上传按钮（直接用文件框做按钮，100%可点击） */
-/* 隐藏文件框的默认label和边框，只保留图标样式 */
-div[data-testid="stFileUploader"] {
+/* 上传按钮（带hover提示） */
+.upload-btn {
     width: 48px;
     height: 48px;
     border-radius: 12px;
     border: 1px solid #d1d5db;
     background: white;
-    overflow: hidden;
-    position: relative;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
     transition: all 0.2s;
+    /* 关键：定位用于提示 */
+    position: relative;
 }
-div[data-testid="stFileUploader"]:hover {
+.upload-btn:hover {
     border-color: #3b82f6;
+    color: #3b82f6;
     background: #f3f4f6;
 }
-/* 隐藏文件框的默认文字和按钮 */
-div[data-testid="stFileUploader"] > div {
-    display: none !important;
-}
-/* 用CSS添加上传图标 */
-div[data-testid="stFileUploader"]::after {
-    content: "⬆️";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 24px;
-    color: #374151;
-    pointer-events: none;
-}
-/* hover提示 */
-div[data-testid="stFileUploader"]::before {
+/* 上传按钮的hover提示：Import CSV */
+.upload-btn::after {
     content: "Import CSV";
     position: absolute;
     bottom: 120%;
@@ -185,7 +198,7 @@ div[data-testid="stFileUploader"]::before {
     z-index: 999;
     pointer-events: none;
 }
-div[data-testid="stFileUploader"]:hover::before {
+.upload-btn:hover::after {
     opacity: 1;
     visibility: visible;
 }
@@ -202,6 +215,11 @@ div[data-testid="stFileUploader"]:hover::before {
 .stButton>button[kind="primary"]:hover {
     background-color: #1d4ed8; /* 深蓝色（hover） */
     color: white !important;
+}
+
+/* 隐藏原生上传区 */
+div[data-testid="stFileUploader"] {
+    display: none !important;
 }
 
 /* 隐藏默认元素 */
@@ -276,29 +294,36 @@ for idx, row in enumerate(st.session_state.rows):
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ====================== 5. 操作按钮行（核心修复：直接用文件框做按钮） ======================
+# ====================== 5. 操作按钮行（上传按钮+文件框联动） ======================
 st.markdown("<div class='action-row'>", unsafe_allow_html=True)
 
 # 1. 加号按钮
-if st.button("⊕", key="add_row", help="Add new row"):
+if st.button("⊕", key="add_row"):
     st.session_state.rows.append(DEFAULT_SEQ.copy())
     st.rerun()
 
-# 2. 上传按钮（直接用st.file_uploader，CSS美化成图标，100%可点击）
-uploaded_file = st.file_uploader("Upload CSV", type="csv", label_visibility="collapsed", key="csv_upload",help="Import CSV")
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    df.columns = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
-    # 批量导入到现有行
-    for i, row in df.iterrows():
-        if i < len(st.session_state.rows):
-            st.session_state.rows[i] = row.to_dict()
-    st.success("✅ CSV imported successfully!")
+# 2. 上传按钮（带hover提示，点击触发文件选择）
+if st.button("⬆️", key="upload_btn", help="Import CSV"):
+    st.session_state.show_upload = True
     st.rerun()
 
 st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ====================== 6. START按钮 ======================
+# ====================== 6. 文件上传组件 ======================
+if st.session_state.show_upload:
+    with st.expander("Upload CSV", expanded=True):
+        uploaded_file = st.file_uploader("Choose CSV file", type="csv", key="csv_upload")
+        if uploaded_file is not None:
+            df = pd.read_csv(uploaded_file)
+            df.columns = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
+            for i, row in df.iterrows():
+                if i < len(st.session_state.rows):
+                    st.session_state.rows[i] = row.to_dict()
+            st.success("✅ CSV imported successfully!")
+            st.session_state.show_upload = False
+            st.rerun()
+
+# ====================== 7. START按钮 ======================
 st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
 if st.button("START", type="primary"):
     with st.spinner("🔄 Running... Please wait"):
