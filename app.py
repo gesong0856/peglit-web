@@ -285,7 +285,7 @@ if st.button("⊕", key="add_row", help="Add new row"):
     st.rerun()
 
 # 2. 上传按钮（直接用st.file_uploader，CSS美化成图标，100%可点击）
-uploaded_file = st.file_uploader("Upload CSV", type="csv", label_visibility="collapsed", key="csv_upload")
+uploaded_file = st.file_uploader("Upload CSV", type="csv", label_visibility="collapsed", key="csv_upload"，help="Import CSV")
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
     df.columns = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
