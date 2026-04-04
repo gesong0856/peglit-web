@@ -85,32 +85,32 @@ with col_btn2:
 
 st.markdown("---")
 
-# ================== 动态多行输入区域（修复key冲突） ==================
+# ================== 动态多行输入区域（调整输入框大小） ==================
 updated_rows = []
 for idx, row in enumerate(st.session_state.rows):
     st.markdown(f"#### 序列组 {idx+1}")
     col1, col2 = st.columns(2)
     
-    # 用唯一key：sp_{idx}_{uuid} 避免冲突
+    # 把 height 从 100 调整为 60，输入框更小
     with col1:
         spacer = st.text_area(
             f"Spacer 序列", 
             value=row["spacer"], 
-            height=100, 
+            height=60,  # 调小高度
             placeholder="输入Spacer序列",
             key=f"sp_{idx}"
         )
         scaffold = st.text_area(
             f"Scaffold 序列", 
             value=row["scaffold"], 
-            height=100, 
+            height=60,  # 调小高度
             placeholder="输入Scaffold序列",
             key=f"sc_{idx}"
         )
         template = st.text_area(
             f"Template 序列", 
             value=row["template"], 
-            height=100, 
+            height=60,  # 调小高度
             placeholder="输入Template序列",
             key=f"t_{idx}"
         )
@@ -119,14 +119,14 @@ for idx, row in enumerate(st.session_state.rows):
         pbs = st.text_area(
             f"PBS 序列", 
             value=row["pbs"], 
-            height=100, 
+            height=60,  # 调小高度
             placeholder="输入PBS序列",
             key=f"p_{idx}"
         )
         motif = st.text_area(
             f"Motif 序列", 
             value=row["motif"], 
-            height=100, 
+            height=60,  # 调小高度
             placeholder="输入Motif序列",
             key=f"m_{idx}"
         )
