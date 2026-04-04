@@ -262,7 +262,7 @@ if st.button("⊕", key="add_row", help="Add new row"):
 upload_col, _ = st.columns([0.1, 0.9])
 with upload_col:
     # 按钮样式还原上传图标，点击切换显示状态
-    if st.button("⬇️", key="upload_btn", help="Import CSV"):
+    if st.button("⬆️", key="upload_btn", help="Import CSV"):
         st.session_state.show_upload = not st.session_state.show_upload
         st.rerun()
 
