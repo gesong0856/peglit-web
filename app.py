@@ -61,7 +61,7 @@ h1 {
 /* 表头行：完美居中+单元格内对齐 */
 .table-header {
     display: grid;
-    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
+    grid-template-columns: 1fr 1.7fr 1.7fr 1fr 1.2fr 1.7fr;
     gap: 0;
     background-color: #ffffff;
     padding: 1.25rem 0;
@@ -81,7 +81,7 @@ h1 {
 /* 输入行：与表头完全同步 */
 .table-input-row {
     display: grid;
-    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
+    grid-template-columns: 1fr 1.7fr 1.7fr 1fr 1.2fr 1.7fr;
     gap: 0;
     border-bottom: 1px solid #e5e7eb;
     align-items: center;
