@@ -293,23 +293,5 @@ if st.button("START", type="primary"):
 
 st.markdown("</div>", unsafe_allow_html=True)
 
-# ================== 上传区 ==================
-st.markdown("""
-<div class="upload-area">
-    <div class="upload-icon">☁️⬆️</div>
-    <div class="upload-text">
-        <h3>Drag and drop file here</h3>
-        <p>Limit 200MB per file • CSV</p>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-uploaded_file = st.file_uploader("", type="csv", label_visibility="collapsed")
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    df.columns = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
-    st.session_state.rows = df.to_dict("records")
-    st.rerun()
-
 # 更新会话状态
 st.session_state.rows = updated_rows
