@@ -285,18 +285,26 @@ if st.button("⊕", key="add_row", help="Add new row"):
     })
     st.rerun()
 
-# 2. 下载图标按钮（带hover提示，点击上传）
-# 用你提供的下载图标SVG，完全对齐
-download_svg = """
-<div class="download-btn" title="Import CSV">
-    <svg class="download-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M17 8L12 13L7 8M12 13V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
+# 2. 上传按钮 📤（带 hover 提示 + 完全对齐）
+upload_btn = """
+<div style="display:inline-flex; 
+            align-items:center; 
+            justify-content:center;
+            width:48px; 
+            height:48px; 
+            border-radius:12px; 
+            cursor:pointer;
+            font-size:22px; 
+            transition:0.2s;"
+     title="Import CSV"
+     onmouseover="this.style.background='#f3f4f6'"
+     onmouseout="this.style.background='transparent'">
+    📤
 </div>
 """
-st.markdown(download_svg, unsafe_allow_html=True)
+st.markdown(upload_btn, unsafe_allow_html=True)
 
-# 点击图标触发上传
+# 点击触发上传
 if st.button("", key="upload_btn", label_visibility="collapsed"):
     st.session_state.show_upload = True
     st.rerun()
