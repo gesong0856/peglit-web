@@ -14,10 +14,10 @@ import peglit_min
 # ================== 会话状态：支持多行输入 ==================
 if "rows" not in st.session_state:
     st.session_state.rows = [
-        {"spacer": "", "scaffold": "GTTTTAG...", "template": "", "pbs": "", "linker": "NNNNNNNN", "motif": "tevopreQ₁\nCGCGGT..."}
+        {"spacer": "", "scaffold": "GTTTTAG...", "template": "", "pbs": "", "linker": "NNNNNNNN", "motif": "tevopreQ₁"}
     ]
 
-# ================== 样式：1:1复刻官网有线表格 ==================
+# ================== 样式：输入框即表格单元格 ==================
 st.markdown("""
 <style>
 /* 全局重置 */
@@ -32,79 +32,78 @@ body {
 /* 标题 */
 h1 {
     text-align: center;
-    font-size: 5rem;
+    font-size: 3rem;
     font-weight: 700;
     margin: 2rem 0 0.5rem !important;
-    color: #111827;
+    color: #1f2937;
 }
 
 /* 副标题 */
 .subtitle {
     text-align: center;
-    font-size: 1.3rem;
+    font-size: 1.1rem;
     color: #6b7280;
-    margin-bottom: 3rem;
+    margin-bottom: 2rem;
     line-height: 1.6;
 }
 
-/* 表格容器（官网卡片） */
+/* 表格容器 */
 .table-card {
     max-width: 1200px;
     margin: 0 auto 1rem;
     border: 1px solid #e5e7eb;
-    border-radius: 10px;
+    border-radius: 8px;
     overflow: hidden;
     background: white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-/* 表头行：有线分割+完全对齐 */
+/* 表头行 */
 .table-header {
     display: grid;
-    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
+    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1.1fr 1.6fr;
     background-color: #ffffff;
-    padding: 1.25rem 1rem;
+    padding: 1rem 1rem;
     font-weight: 500;
-    font-size: 1.25rem;
+    font-size: 1.2rem;
     border-bottom: 1px solid #e5e7eb;
-    /* 给表头加竖线分割 */
+    /* 竖线分割 */
     background-image: linear-gradient(to right, #e5e7eb 1px, transparent 1px);
     background-size: calc(100% / 6) 100%;
     background-repeat: repeat-x;
 }
 
-/* 输入行：有线分割+完全对齐 */
+/* 输入行：输入框即单元格 */
 .table-input-row {
     display: grid;
-    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
-    padding: 0.75rem 1rem;
+    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1.1fr 1.6fr;
     border-bottom: 1px solid #e5e7eb;
-    align-items: center;
-    /* 给输入行加竖线分割，和表头完全一致 */
+    /* 竖线分割，和表头一致 */
     background-image: linear-gradient(to right, #e5e7eb 1px, transparent 1px);
     background-size: calc(100% / 6) 100%;
     background-repeat: repeat-x;
 }
 
-/* 输入框样式：官网透明无边框，适配有线表格 */
+/* 输入框样式：完全融入单元格 */
 .table-input-row input {
     width: 100%;
-    border: none;
-    outline: none;
+    border: none !important;
+    outline: none !important;
     font-size: 1.1rem;
-    padding: 0.5rem;
-    background-color: transparent;
+    padding: 0.8rem 1rem;
+    background-color: transparent !important;
+    /* 去掉输入框默认样式 */
+    -webkit-appearance: none;
+    appearance: none;
 }
 .table-input-row input:focus {
-    background-color: #f8f9fa;
-    border-radius: 4px;
+    background-color: #f3f4f6 !important;
 }
 
-/* 操作按钮行：圆圈加号 + 上传箭头 */
+/* 操作按钮行 */
 .action-row {
     display: grid;
-    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
-    padding: 0.75rem 1rem;
+    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1.1fr 1.6fr;
+    padding: 0.8rem 1rem;
     align-items: center;
 }
 
@@ -113,9 +112,9 @@ h1 {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    border: 2px solid #d1d5db;
+    border: 1px solid #d1d5db;
     background: white;
-    font-size: 20px;
+    font-size: 18px;
     color: #6b7280;
     cursor: pointer;
     display: flex;
@@ -123,14 +122,14 @@ h1 {
     justify-content: center;
 }
 .circle-btn:hover {
-    border-color: #415E9B;
-    color: #415E9B;
+    border-color: #3b82f6;
+    color: #3b82f6;
 }
 
-/* 上传区样式（官网拖拽区） */
+/* 上传区样式 */
 .upload-area {
     max-width: 1200px;
-    margin: 0 auto 2rem;
+    margin: 1rem auto 2rem;
     border: 2px dashed #e5e7eb;
     border-radius: 10px;
     padding: 1.5rem;
@@ -140,12 +139,8 @@ h1 {
     gap: 1rem;
 }
 .upload-icon {
-    font-size: 1.5rem !important;
+    font-size: 1.5rem;
     color: #9ca3af;
-    line-height: 1;
-}
-.upload-text {
-    flex: 1;
 }
 .upload-text h3 {
     margin: 0 0 0.25rem;
@@ -158,26 +153,25 @@ h1 {
     color: #6b7280;
 }
 
-/* START按钮（官网同款） */
+/* START按钮 */
 .start-btn-container {
     text-align: center;
-    margin: 1rem 0 3rem 0;
+    margin: 1rem 0 2rem;
 }
 .stButton>button[kind="primary"] {
-    background-color: #415E9B !important;
+    background-color: #3b82f6 !important;
     color: white !important;
     border: none !important;
     border-radius: 8px !important;
-    padding: 1rem 3rem !important;
-    font-size: 1.75rem !important;
+    padding: 0.8rem 2.5rem !important;
+    font-size: 1.5rem !important;
     font-weight: 600 !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
     margin: 0 auto !important;
     display: block !important;
-    width: auto !important;
 }
 .stButton>button[kind="primary"]:hover {
-    background-color: #324b7a !important;
+    background-color: #2563eb !important;
 }
 
 /* 隐藏Streamlit默认元素 */
@@ -185,21 +179,19 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-# ================== 页面标题（官网一模一样） ==================
+# ================== 页面标题 ==================
 st.markdown("<h1>pegLIT</h1>", unsafe_allow_html=True)
 st.markdown("""
 <div class="subtitle">
 Automatically identify non-interfering nucleotide<br>
 linkers between a pegRNA and 3' motif.
-<br><br>
-<a href="#">Learn more...</a>
 </div>
 """, unsafe_allow_html=True)
 
-# ================== 有线分割表格（官网布局） ==================
+# ================== 表格（输入框即单元格） ==================
 st.markdown("<div class='table-card'>", unsafe_allow_html=True)
 
-# 第一行：表头
+# 表头
 st.markdown("""
 <div class="table-header">
     <div>Spacer</div>
@@ -211,11 +203,11 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 第二行：输入框
+# 输入行
 updated_rows = []
 for idx, row in enumerate(st.session_state.rows):
     st.markdown("<div class='table-input-row'>", unsafe_allow_html=True)
-    cols = st.columns([1, 1.5, 1.5, 1, 1, 1.5])
+    cols = st.columns([1, 1.5, 1.5, 1, 1.1, 1.6])
     
     updated_row = {}
     updated_row["spacer"] = cols[0].text_input("", value=row["spacer"], label_visibility="collapsed", key=f"sp_{idx}")
@@ -228,36 +220,29 @@ for idx, row in enumerate(st.session_state.rows):
     updated_rows.append(updated_row)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# 第三行：操作按钮（圆圈加号 + 上传箭头）
+# 操作按钮行
 st.markdown("<div class='action-row'>", unsafe_allow_html=True)
-col_add, col_upload, _, _, _, _ = st.columns([1, 1.5, 1.5, 1, 1, 1.5])
+col_add, _, _, _, _, _ = st.columns([1, 1.5, 1.5, 1, 1.1, 1.6])
 with col_add:
     if st.button("⊕", key="add_row", help="Add row"):
         st.session_state.rows.append({
             "spacer": "", "scaffold": "", "template": "", "pbs": "", "linker": "NNNNNNNN", "motif": ""
         })
         st.rerun()
-with col_upload:
-    uploaded_file = st.file_uploader("⬆️ Import CSV", type="csv", label_visibility="collapsed")
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-        df.columns = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
-        st.session_state.rows = df.to_dict("records")
-        st.rerun()
 st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ================== START按钮（表格下方） ==================
+# ================== START按钮 ==================
 st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
 if st.button("START", type="primary"):
     # 输入校验
     df_input = pd.DataFrame(updated_rows)
     if df_input.isnull().values.any() or (df_input == "").values.any():
-        st.error("❌ Please fill in all fields!")
+        st.error("❌ 请填写所有序列！")
         st.stop()
 
-    with st.spinner("🔬 Calculating..."):
+    with st.spinner("🔬 计算中，请稍候..."):
         try:
-            # 批量计算，并把结果直接写回 linker 框
+            # 批量计算，结果写入Linker Pattern单元格
             for i, row in enumerate(updated_rows):
                 result = peglit_min.pegLIT(
                     seq_spacer=row["spacer"],
@@ -279,22 +264,22 @@ if st.button("START", type="primary"):
                     seed=2026,
                     sequences_to_avoid=None
                 )
-                # 把最优结果直接写入 Linker Pattern
+                # 最优结果写入单元格
                 best_linker = result.iloc[0]['linker']
                 updated_rows[i]["linker"] = best_linker
 
-            # 保存回界面
+            # 保存结果，刷新界面
             st.session_state.rows = updated_rows
-            st.success("✅ Calculation finished! Result is in Linker Pattern box.")
+            st.success("✅ 计算完成！结果已显示在Linker Pattern列")
             st.rerun()
 
         except Exception as e:
-            st.error(f"❌ Error: {str(e)}")
+            st.error(f"❌ 计算出错：{str(e)}")
             st.exception(e)
 
 st.markdown("</div>", unsafe_allow_html=True)
 
-# ================== 上传区（官网样式） ==================
+# ================== 上传区 ==================
 st.markdown("""
 <div class="upload-area">
     <div class="upload-icon">☁️⬆️</div>
@@ -304,6 +289,13 @@ st.markdown("""
     </div>
 </div>
 """, unsafe_allow_html=True)
+
+uploaded_file = st.file_uploader("", type="csv", label_visibility="collapsed")
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
+    df.columns = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
+    st.session_state.rows = df.to_dict("records")
+    st.rerun()
 
 # 更新会话状态
 st.session_state.rows = updated_rows
