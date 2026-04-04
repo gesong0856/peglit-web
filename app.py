@@ -14,10 +14,10 @@ import peglit_min
 # ================== 会话状态：支持多行输入 ==================
 if "rows" not in st.session_state:
     st.session_state.rows = [
-        {"spacer": "", "scaffold": "GTTTTAG...", "template": "", "pbs": "", "linker": "NNNNNNNN", "motif": "tevopreQ₁"}
+        {"spacer": "", "scaffold": "GTTTTAG...", "template": "", "pbs": "", "linker": "NNNNNNNN", "motif": "tevopreQ₁\nCGCGGT..."}
     ]
 
-# ================== 样式：输入框即表格单元格 ==================
+# ================== 样式：1:1 还原官网表格+图标样式 ==================
 st.markdown("""
 <style>
 /* 全局重置 */
@@ -55,57 +55,51 @@ h1 {
     border-radius: 8px;
     overflow: hidden;
     background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-/* 表头行：完美居中+单元格内对齐+零错位 */
+/* 表头行：完美居中+单元格内对齐 */
 .table-header {
     display: grid;
-    /* 与输入行grid-template-columns完全一致，保证列宽对齐 */
-    grid-template-columns: 1fr 1.6fr 1.6fr 1fr 1.1fr 1.6fr;
-    gap: 0; /* 取消gap，让竖线精准分割 */
+    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
+    gap: 0;
     background-color: #ffffff;
-    padding: 1.25rem 0; /* 取消左右内边距，让文字在单元格内居中 */
+    padding: 1.25rem 0;
     font-weight: 500;
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     border-bottom: 1px solid #e5e7eb;
-    /* 竖线分割，精准对应每列 */
     background-image: linear-gradient(to right, #e5e7eb 1px, transparent 1px);
     background-size: calc(100% / 6) 100%;
     background-repeat: repeat-x;
 }
-
-/* 表头内文字：单元格内居中对齐 */
 .table-header > div {
-    padding: 0 1rem; /* 给文字加左右内边距，避免贴边 */
-    text-align: left; /* 左对齐，和输入框文字完全对齐 */
+    padding: 0 1rem;
+    text-align: left;
     line-height: 1.5;
 }
 
-/* 输入行：与表头完全同步，保证零错位 */
+/* 输入行：与表头完全同步 */
 .table-input-row {
     display: grid;
-    grid-template-columns: 1fr 1.6fr 1.6fr 1fr 1.1fr 1.6fr;
-    gap: 0; /* 与表头gap一致，竖线精准对齐 */
+    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
+    gap: 0;
     border-bottom: 1px solid #e5e7eb;
     align-items: center;
-    /* 竖线分割，与表头完全一致 */
     background-image: linear-gradient(to right, #e5e7eb 1px, transparent 1px);
     background-size: calc(100% / 6) 100%;
     background-repeat: repeat-x;
 }
 
-/* 输入框样式：单元格内对齐，与表头文字同步 */
+/* 输入框样式：单元格内对齐 */
 .table-input-row input {
     width: 100%;
-    border: none;
-    outline: none;
+    border: none !important;
+    outline: none !important;
     font-size: 1.1rem;
-    padding: 0.75rem 1rem; /* 与表头文字内边距一致，保证上下对齐 */
-    background-color: transparent;
+    padding: 0.75rem 1rem;
+    background-color: transparent !important;
     line-height: 1.5;
     text-align: left;
-}
-    /* 去掉输入框默认样式 */
     -webkit-appearance: none;
     appearance: none;
 }
@@ -113,10 +107,11 @@ h1 {
     background-color: #f3f4f6 !important;
 }
 
-/* 操作按钮行 */
+/* 操作按钮行：加号+Import CSV图标 */
 .action-row {
     display: grid;
-    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1.1fr 1.6fr;
+    grid-template-columns: auto auto 1fr;
+    gap: 0.5rem;
     padding: 0.8rem 1rem;
     align-items: center;
 }
@@ -140,31 +135,24 @@ h1 {
     color: #3b82f6;
 }
 
-/* 上传区样式 */
-.upload-area {
-    max-width: 1200px;
-    margin: 1rem auto 2rem;
-    border: 2px dashed #e5e7eb;
-    border-radius: 10px;
-    padding: 1.5rem;
-    background-color: #f9fafb;
+/* Import CSV 图标按钮 */
+.csv-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid #d1d5db;
+    background: #f3f4f6;
+    font-size: 18px;
+    color: #6b7280;
+    cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 1rem;
+    justify-content: center;
 }
-.upload-icon {
-    font-size: 1.5rem;
-    color: #9ca3af;
-}
-.upload-text h3 {
-    margin: 0 0 0.25rem;
-    font-size: 1.25rem;
-    color: #374151;
-}
-.upload-text p {
-    margin: 0;
-    font-size: 0.9rem;
-    color: #6b7280;
+.csv-btn:hover {
+    background: #e5e7eb;
+    border-color: #3b82f6;
+    color: #3b82f6;
 }
 
 /* START按钮 */
@@ -202,7 +190,7 @@ linkers between a pegRNA and 3' motif.
 </div>
 """, unsafe_allow_html=True)
 
-# ================== 表格（输入框即单元格） ==================
+# ================== 表格 ==================
 st.markdown("<div class='table-card'>", unsafe_allow_html=True)
 
 # 表头
@@ -221,7 +209,7 @@ st.markdown("""
 updated_rows = []
 for idx, row in enumerate(st.session_state.rows):
     st.markdown("<div class='table-input-row'>", unsafe_allow_html=True)
-    cols = st.columns([1, 1.5, 1.5, 1, 1.1, 1.6])
+    cols = st.columns([1, 1.5, 1.5, 1, 1, 1.5])
     
     updated_row = {}
     updated_row["spacer"] = cols[0].text_input("", value=row["spacer"], label_visibility="collapsed", key=f"sp_{idx}")
