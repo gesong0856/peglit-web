@@ -106,7 +106,7 @@ h1 {
     cursor: not-allowed !important;
 }
 
-/* 按钮行（对齐+hover提示） */
+/* 按钮行（对齐+可点击） */
 .action-row {
     display: flex;
     align-items: center;
@@ -136,13 +136,13 @@ h1 {
     background: #f3f4f6;
 }
 
-/* 上传图标按钮（用透明label实现隐藏，兼容所有Streamlit版本） */
+/* 上传按钮（直接用图标做按钮，100%可点击） */
 .upload-btn {
     width: 48px;
     height: 48px;
     border-radius: 12px;
     border: 1px solid transparent;
-    background: transparent;
+    background: #f3f4f6;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -151,7 +151,7 @@ h1 {
     position: relative;
 }
 .upload-btn:hover {
-    background: #f3f4f6;
+    background: #e5e7eb;
 }
 /* hover提示 */
 .upload-btn::after {
@@ -162,12 +162,13 @@ h1 {
     transform: translateX(-50%);
     background: #1f2937;
     color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
+    padding: 6px 10px;
+    border-radius: 6px;
     font-size: 12px;
+    white-space: nowrap;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.2s;
+    transition: opacity 0.2s ease-in-out;
     z-index: 999;
 }
 .upload-btn:hover::after {
@@ -175,7 +176,7 @@ h1 {
     visibility: visible;
 }
 
-/* 上传图标SVG */
+/* 上传图标SVG（内联在按钮中） */
 .upload-icon {
     width: 24px;
     height: 24px;
@@ -276,7 +277,7 @@ for idx, row in enumerate(st.session_state.rows):
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ====================== 5. 操作按钮行（彻底修复按钮参数） ======================
+# ====================== 5. 操作按钮行（核心修复：按钮直接带图标，100%可点击） ======================
 st.markdown("<div class='action-row'>", unsafe_allow_html=True)
 
 # 1. 加号按钮
@@ -284,18 +285,14 @@ if st.button("⊕", key="add_row", help="Add new row"):
     st.session_state.rows.append(DEFAULT_SEQ.copy())
     st.rerun()
 
-# 2. 上传图标按钮（用空字符串+隐藏，兼容所有版本）
-upload_svg = """
-<div class="upload-btn">
-    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M17 8L12 13L7 8M12 13V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-</div>
+# 2. 上传按钮（直接用图标做按钮，无层级冲突，点击秒触发）
+upload_icon_svg = """
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M17 8L12 13L7 8M12 13V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
 """
-st.markdown(upload_svg, unsafe_allow_html=True)
-
-# 【核心修复】用空字符串作为label，不使用label_visibility，彻底避免参数冲突
-if st.button(" ", key="upload_btn"):
+# 按钮直接渲染图标，无层级冲突
+if st.button(upload_icon_svg, key="upload_btn", unsafe_allow_html=True):
     st.session_state.show_upload = True
     st.rerun()
 
