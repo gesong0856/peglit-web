@@ -11,17 +11,18 @@ if "rows" not in st.session_state:
     st.session_state.rows = [
         {"spacer": "", "scaffold": "GTTTTAG...", "template": "", "pbs": "", "linker": "NNNNNNNN", "motif": "tevopreQ₁"}
     ]
-# 上传弹窗状态控制
-if "show_upload_dialog" not in st.session_state:
-    st.session_state.show_upload_dialog = False
+if "show_upload" not in st.session_state:
+    st.session_state.show_upload = False
 
-# ====================== 2. 全局样式（彻底隐藏上传区） ======================
+# ====================== 2. 全局样式（对齐+hover提示+隐藏上传区） ======================
 st.markdown("""
 <style>
 /* 全局重置 */
 * {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 body {
     background-color: #ffffff;
@@ -85,7 +86,7 @@ h1 {
     background-repeat: repeat-x;
 }
 
-/* 输入框样式（修复空标签+Linker只读样式） */
+/* 输入框样式（Linker只读+空标签修复） */
 .table-input-row input {
     width: 100%;
     border: none !important;
@@ -98,34 +99,34 @@ h1 {
     -webkit-appearance: none;
     appearance: none;
 }
-/* Linker 只读样式：灰色背景、不可点击、光标禁用 */
 .table-input-row input:disabled {
     color: #6b7280 !important;
     background-color: #f3f4f6 !important;
     cursor: not-allowed !important;
 }
 
-/* 操作按钮行 */
+/* ============== 核心修复：按钮行对齐+hover提示 ============== */
 .action-row {
     display: flex;
-    gap: 12px;
-    padding: 0.8rem 1rem;
     align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    height: 48px; /* 统一高度，彻底解决错位 */
 }
 
-/* 加号按钮 */
+/* 加号按钮（圆角矩形，和图标高度对齐） */
 .add-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
     border: 1px solid #d1d5db;
     background: white;
-    font-size: 18px;
-    color: #6b7280;
-    cursor: pointer;
-    display: flex;
+    font-size: 20px;
+    color: #374151;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
     transition: all 0.2s;
 }
 .add-btn:hover {
@@ -134,23 +135,54 @@ h1 {
     background: #f3f4f6;
 }
 
-/* 下载图标按钮 */
+/* 下载图标按钮（和加号完全对齐，加hover提示） */
 .download-btn {
-    width: 36px;
-    height: 36px;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    border: 1px solid transparent;
     background: transparent;
-    border: none;
-    cursor: pointer;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
     transition: all 0.2s;
+    position: relative;
 }
 .download-btn:hover {
-    transform: translateY(-2px);
+    background: #f3f4f6;
+}
+/* hover提示框 */
+.download-btn::after {
+    content: "Import CSV";
+    position: absolute;
+    bottom: 120%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s;
+    z-index: 999;
+}
+.download-btn:hover::after {
+    opacity: 1;
+    visibility: visible;
 }
 
-/* 🔥 终极隐藏原生上传区（多层级高优先级，彻底隐藏） */
+/* 下载图标SVG样式 */
+.download-icon {
+    width: 24px;
+    height: 24px;
+    fill: #374151;
+}
+
+/* ============== 彻底隐藏原生上传区 ============== */
 div[data-testid="stFileUploader"] {
     display: none !important;
     visibility: hidden !important;
@@ -196,7 +228,7 @@ div[data-testid="stFileUploaderDropzone"] {
     background-color: #2563eb !important;
 }
 
-/* 隐藏Streamlit默认元素 */
+/* 隐藏默认元素 */
 #MainMenu, footer, header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
@@ -225,59 +257,59 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 输入行（修复空标签+Linker只读）
+# 输入行（Linker只读+空标签修复）
 updated_rows = []
 for idx, row in enumerate(st.session_state.rows):
     st.markdown("<div class='table-input-row'>", unsafe_allow_html=True)
     cols = st.columns([1, 1.5, 1.5, 1, 1, 1.5])
     
-    # 给所有输入框加唯一隐形label，彻底消除空标签警告
     updated_row = {
         "spacer": cols[0].text_input(f"spacer_{idx}", value=row["spacer"], label_visibility="collapsed"),
         "scaffold": cols[1].text_input(f"scaffold_{idx}", value=row["scaffold"], label_visibility="collapsed"),
         "template": cols[2].text_input(f"template_{idx}", value=row["template"], label_visibility="collapsed"),
         "pbs": cols[3].text_input(f"pbs_{idx}", value=row["pbs"], label_visibility="collapsed"),
-        # Linker Pattern 只读，仅输出，不可手动输入
+        # Linker只读，仅输出
         "linker": cols[4].text_input(f"linker_{idx}", value=row["linker"], label_visibility="collapsed", disabled=True),
         "motif": cols[5].text_input(f"motif_{idx}", value=row["motif"], label_visibility="collapsed")
     }
     updated_rows.append(updated_row)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ====================== 5. 操作按钮行（加号+下载图标） ======================
+# ====================== 5. 操作按钮行（对齐+hover提示） ======================
 st.markdown("<div class='action-row'>", unsafe_allow_html=True)
 
-# 1. 加号按钮：添加新行
-if st.button("⊕", key="add_row_btn", help="Add new row"):
+# 1. 加号按钮
+if st.button("⊕", key="add_row", help="Add new row"):
     st.session_state.rows.append({
         "spacer": "", "scaffold": "", "template": "", "pbs": "", "linker": "NNNNNNNN", "motif": ""
     })
     st.rerun()
 
-# 2. 下载图标按钮：点击触发上传（用状态控制，无非法参数）
-# 用st.button包裹SVG，仅传合法参数
-upload_svg = """
-<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-  <path d="M7 10l5 5 5-5"></path>
-  <path d="M12 15V3"></path>
-</svg>
+# 2. 下载图标按钮（带hover提示，点击上传）
+# 用你提供的下载图标SVG，完全对齐
+download_svg = """
+<div class="download-btn" title="Import CSV">
+    <svg class="download-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M17 8L12 13L7 8M12 13V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+</div>
 """
-if st.button(upload_svg, key="download_upload_btn", unsafe_allow_html=True):
-    st.session_state.show_upload_dialog = True
+st.markdown(download_svg, unsafe_allow_html=True)
+
+# 点击图标触发上传
+if st.button("", key="upload_btn", label_visibility="collapsed"):
+    st.session_state.show_upload = True
     st.rerun()
 
 st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ====================== 6. 隐藏式上传弹窗 ======================
-if st.session_state.show_upload_dialog:
-    # 仅用合法参数调用st.file_uploader，无label_visibility错误
-    uploaded_file = st.file_uploader("Upload CSV", type="csv", key="csv_upload")
+# ====================== 6. 隐藏式上传 ======================
+if st.session_state.show_upload:
+    uploaded_file = st.file_uploader("Upload CSV", type="csv", label_visibility="collapsed", key="csv_upload")
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
-        # 强制列名匹配，避免导入错误
         df.columns = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
-        # 上传数据自动填入对应行
+        # 自动填入对应行
         for i, row in df.iterrows():
             if i < len(st.session_state.rows):
                 st.session_state.rows[i]["spacer"] = str(row["spacer"])
@@ -286,8 +318,7 @@ if st.session_state.show_upload_dialog:
                 st.session_state.rows[i]["pbs"] = str(row["pbs"])
                 st.session_state.rows[i]["linker"] = str(row["linker"])
                 st.session_state.rows[i]["motif"] = str(row["motif"])
-        # 关闭弹窗，刷新界面
-        st.session_state.show_upload_dialog = False
+        st.session_state.show_upload = False
         st.rerun()
 
 # ====================== 7. START按钮+运行中提示 ======================
@@ -295,9 +326,9 @@ st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
 if st.button("START", type="primary"):
     with st.spinner("🔄 Running... Please wait"):
         try:
-            # 批量计算pegLIT结果，写入Linker Pattern
+            # 批量计算pegLIT结果
             for i, r in enumerate(updated_rows):
-                result = peglit_min.pegLIT(
+                res = peglit_min.pegLIT(
                     seq_spacer=r["spacer"],
                     seq_scaffold=r["scaffold"],
                     seq_template=r["template"],
@@ -305,10 +336,8 @@ if st.button("START", type="primary"):
                     seq_motif=r["motif"],
                     linker_pattern=r["linker"]
                 )
-                # 提取最优结果，写入Linker
-                updated_rows[i]["linker"] = result.iloc[0]['linker']
+                updated_rows[i]["linker"] = res.iloc[0]['linker']
             
-            # 更新会话状态，刷新界面
             st.session_state.rows = updated_rows
             st.success("✅ Calculation completed!")
             st.rerun()
