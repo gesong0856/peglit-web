@@ -1,12 +1,11 @@
 import streamlit as st
 st.set_page_config(page_title="pegLIT", layout="wide")
 
-import numpy as np
 import pandas as pd
 import RNA
 import peglit_min
 
-# ====================== 【固定死默认值】 ======================
+# ====================== 1. 只在第一次加载时初始化 ======================
 if "rows" not in st.session_state:
     st.session_state.rows = [
         {
@@ -28,123 +27,122 @@ st.markdown("""
 .action-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 16px;
+    gap: 14px;
+    margin: 8px 0;
 }
-.upload-btn {
-    width: 40px;
-    height: 40px;
+.upload-icon-btn {
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
+    border-radius: 10px;
     cursor: pointer;
 }
-.upload-btn:hover {
-    background: #f3f4f6;
+.upload-icon-btn:hover {
+    background: #f1f3f4;
 }
 div[data-testid="stFileUploader"] {
     display: none !important;
 }
-#MainMenu, footer, header {visibility: hidden;}
+#MainMenu, footer, header {
+    visibility: hidden;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # ====================== 标题 ======================
 st.markdown("# pegLIT")
 st.caption("Automatically identify non-interfering nucleotide linkers between a pegRNA and 3' motif.")
-
-# ====================== 表格 ======================
-cols = st.columns([1, 2, 3, 1, 1, 2])
-cols[0].markdown("**Spacer**")
-cols[1].markdown("**Scaffold**")
-cols[2].markdown("**Template**")
-cols[3].markdown("**PBS**")
-cols[4].markdown("**Linker**")
-cols[5].markdown("**Motif**")
-
-# 关键：直接用 session_state 里的值，不再自己建 updated_rows 覆盖
-for i, row in enumerate(st.session_state.rows):
-    c = st.columns([1, 2, 3, 1, 1, 2])
-    spacer = c[0].text_input("Spacer", row["spacer"], key=f"s_{i}")
-    scaffold = c[1].text_input("Scaffold", row["scaffold"], key=f"sc_{i}")
-    template = c[2].text_input("Template", row["template"], key=f"t_{i}")
-    pbs = c[3].text_input("PBS", row["pbs"], key=f"p_{i}")
-    linker = c[4].text_input("Linker", row["linker"], disabled=True, key=f"l_{i}")
-    motif = c[5].text_input("Motif", row["motif"], key=f"m_{i}")
-
-    # 同步回 session_state
-    st.session_state.rows[i] = {
-        "spacer": spacer,
-        "scaffold": scaffold,
-        "template": template,
-        "pbs": pbs,
-        "linker": linker,
-        "motif": motif
-    }
-
-# ====================== 按钮 ======================
 st.divider()
-ac1, ac2 = st.columns([0.1, 0.1])
-with ac1:
-    if st.button("⊕"):
-        st.session_state.rows.append({
-            "spacer": "",
-            "scaffold": "",
-            "template": "",
-            "pbs": "",
-            "linker": "NNNNNNNN",
-            "motif": ""
-        })
-        st.rerun()
 
-with ac2:
-    st.markdown("""
-    <div class="upload-btn" title="Import CSV">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <path d="M7 10l5-5 5 5"></path>
-            <path d="M12 15V3"></path>
-        </svg>
-    </div>
-    """, unsafe_allow_html=True)
+# ====================== 表头 ======================
+col_w = [1, 2, 3, 1, 1, 2]
+c = st.columns(col_w)
+c[0].markdown("**Spacer**")
+c[1].markdown("**Scaffold**")
+c[2].markdown("**Template**")
+c[3].markdown("**PBS**")
+c[4].markdown("**Linker**")
+c[5].markdown("**Motif**")
 
-    if st.button(" ", key="up"):
-        st.session_state.show_upload = True
-        st.rerun()
+# ====================== 表格：只读取，不覆盖 ======================
+for i, row in enumerate(st.session_state.rows):
+    c = st.columns(col_w)
+    c[0].text_input("Spacer",    row["spacer"],    key=f"sp_{i}")
+    c[1].text_input("Scaffold",  row["scaffold"],  key=f"sc_{i}")
+    c[2].text_input("Template",  row["template"],  key=f"te_{i}")
+    c[3].text_input("PBS",       row["pbs"],       key=f"pb_{i}")
+    c[4].text_input("Linker",    row["linker"],    disabled=True, key=f"li_{i}")
+    c[5].text_input("Motif",     row["motif"],     key=f"mo_{i}")
 
-# ====================== 上传 ======================
+# ====================== 按钮：加号 + 上传 ======================
+st.markdown("<div class='action-row'>", unsafe_allow_html=True)
+
+# 加号
+if st.button("⊕", key="add_row"):
+    st.session_state.rows.append({
+        "spacer": "",
+        "scaffold": "",
+        "template": "",
+        "pbs": "",
+        "linker": "NNNNNNNN",
+        "motif": ""
+    })
+    st.rerun()
+
+# 上传图标
+st.markdown("""
+<div class="upload-icon-btn" title="Import CSV">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+  <path d="M7 10l5-5 5 5"></path>
+  <path d="M12 15V3"></path>
+</svg>
+</div>
+""", unsafe_allow_html=True)
+
+# 点击触发上传
+if st.button(" ", key="trigger_upload", label_visibility="collapsed"):
+    st.session_state.show_upload = True
+    st.rerun()
+
+st.markdown("</div>", unsafe_allow_html=True)
+
+# ====================== 上传CSV ======================
 if st.session_state.show_upload:
-    f = st.file_uploader("CSV", type="csv")
+    f = st.file_uploader("Upload CSV", type="csv", label_visibility="collapsed")
     if f:
         df = pd.read_csv(f)
         for i, r in df.iterrows():
             if i < len(st.session_state.rows):
-                st.session_state.rows[i]["spacer"] = str(r.iloc[0])
+                st.session_state.rows[i]["spacer"]   = str(r.iloc[0])
                 st.session_state.rows[i]["scaffold"] = str(r.iloc[1])
                 st.session_state.rows[i]["template"] = str(r.iloc[2])
-                st.session_state.rows[i]["pbs"] = str(r.iloc[3])
-                st.session_state.rows[i]["linker"] = str(r.iloc[4])
-                st.session_state.rows[i]["motif"] = str(r.iloc[5])
+                st.session_state.rows[i]["pbs"]      = str(r.iloc[3])
+                st.session_state.rows[i]["linker"]   = str(r.iloc[4])
+                st.session_state.rows[i]["motif"]    = str(r.iloc[5])
         st.session_state.show_upload = False
         st.rerun()
 
-# ====================== START ======================
 st.divider()
+
+# ====================== START 运行 ======================
 if st.button("START", type="primary", use_container_width=True):
     with st.spinner("Running..."):
         try:
-            for i, r in enumerate(st.session_state.rows):
+            for i, row in enumerate(st.session_state.rows):
                 res = peglit_min.pegLIT(
-                    seq_spacer=r["spacer"],
-                    seq_scaffold=r["scaffold"],
-                    seq_template=r["template"],
-                    seq_pbs=r["pbs"],
-                    seq_motif=r["motif"],
-                    linker_pattern=r["linker"]
+                    seq_spacer=row["spacer"],
+                    seq_scaffold=row["scaffold"],
+                    seq_template=row["template"],
+                    seq_pbs=row["pbs"],
+                    seq_motif=row["motif"],
+                    linker_pattern=row["linker"]
                 )
+                # 把结果写回 session_state
                 st.session_state.rows[i]["linker"] = res[0]["linker"]
-            st.success("Done!")
+            st.success("Calculation completed!")
             st.rerun()
         except Exception as e:
-            st.error(e)
+            st.error(f"Error: {str(e)}")
