@@ -20,6 +20,9 @@ DEFAULT_SEQ = {
 
 if "rows" not in st.session_state:
     st.session_state.rows = [DEFAULT_SEQ.copy()]
+# 新增：初始化存储计算结果的状态，用于额外展示
+if "calculated_linkers" not in st.session_state:
+    st.session_state.calculated_linkers = []
 
 # ====================== 2. 全局样式 ======================
 st.markdown("""
@@ -46,7 +49,7 @@ h1 {
 .subtitle {
     text-align: center;
     font-size: 1.1rem;
-    color: #6b7280;
+    color: #1e40af; /* 深蓝 */
     margin-bottom: 2rem;
     line-height: 1.6;
 }
@@ -100,7 +103,7 @@ h1 {
 }
 .table-input-row input:disabled {
     background: #f3f4f6 !important;
-    color: #1e40af !important;
+    color: #1e40af !important; /* 深蓝 */
     cursor: not-allowed !important;
 }
 
@@ -338,6 +341,8 @@ st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
 if st.button("START", type="primary"):
     with st.spinner("🔄 Running... Please wait"):
         try:
+            # 新增：清空历史计算结果
+            st.session_state.calculated_linkers = []
             for i, r in enumerate(st.session_state.rows):
                 # 关键修复：每个键都做兜底，避免缺失
                 spacer = r.get("spacer", DEFAULT_SEQ["spacer"])
@@ -363,7 +368,7 @@ if st.button("START", type="primary"):
                     num_repeats=10,
                     num_steps=250,
                     temp_init=0.15,
-                    temp_decay=0.95,
+                    temp_decay=0.9,
                     bottleneck=1,
                     seed=2020,
                     sequences_to_avoid=None
@@ -388,6 +393,11 @@ if st.button("START", type="primary"):
                 
                 # 更新linker并提示
                 st.session_state.rows[i]["linker"] = new_linker
+                # 新增：将计算结果存入状态，用于额外展示
+                st.session_state.calculated_linkers.append({
+                    "row_num": i+1,
+                    "linker": new_linker
+                })
                 if new_linker == DEFAULT_SEQ["linker"]:
                     st.warning(f"Row {i+1}: No valid linker result, keeping default (NNNNNNNN).")
                 else:
