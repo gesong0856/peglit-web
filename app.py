@@ -14,7 +14,7 @@ import peglit_min
 # ================== 会话状态：支持多行输入 ==================
 if "rows" not in st.session_state:
     st.session_state.rows = [
-        {"spacer": "", "scaffold": "GTTTTAG...", "template": "", "pbs": "", "linker": "NNNNNNNN", "motif": "tevopreQ₁\nCGCGGT..."}
+        {"spacer": "", "scaffold": "GTTTTAG...", "template": "", "pbs": "", "linker": "NNNNNNNN", "motif": "tevopreQ₁"}
     ]
 
 # ================== 样式：1:1复刻官网 ==================
@@ -58,22 +58,24 @@ h1 {
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-/* 表头行（第一行：6列标题） */
+/* 表头行：字体缩小+间距拉开 */
 .table-header {
     display: grid;
-    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
+    grid-template-columns: 1fr 1.6fr 1.6fr 1fr 1.1fr 1.6fr;
+    gap: 1rem;
     background-color: #ffffff;
-    padding: 1.25rem 1rem;
+    padding: 1.25rem 1.5rem;
     font-weight: 500;
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     border-bottom: 1px solid #e5e7eb;
 }
 
 /* 输入行（第二行：6列输入框） */
 .table-input-row {
     display: grid;
-    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
-    padding: 0.75rem 1rem;
+    grid-template-columns: 1fr 1.6fr 1.6fr 1fr 1.1fr 1.6fr;
+    gap: 1rem;
+    padding: 0.75rem 1.5rem;
     border-bottom: 1px solid #e5e7eb;
     align-items: center;
 }
@@ -95,8 +97,9 @@ h1 {
 /* 操作按钮行（第三行：圆圈加号 + 上传箭头） */
 .action-row {
     display: grid;
-    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
-    padding: 0.75rem 1rem;
+    grid-template-columns: 1fr 1.6fr 1.6fr 1fr 1.1fr 1.6fr;
+    gap: 1rem;
+    padding: 0.75rem 1.5rem;
     align-items: center;
 }
 
@@ -132,8 +135,9 @@ h1 {
     gap: 1rem;
 }
 .upload-icon {
-    font-size: 2.5rem;
+    font-size: 1.5rem !important;
     color: #9ca3af;
+    line-height: 1;
 }
 .upload-text {
     flex: 1;
@@ -152,7 +156,7 @@ h1 {
 /* START按钮（官网同款） */
 .start-btn-container {
     text-align: center;
-    margin: 2rem 0;
+    margin: 1rem 0 3rem 0;
 }
 .stButton>button[kind="primary"] {
     background-color: #415E9B !important;
@@ -163,7 +167,7 @@ h1 {
     font-size: 1.75rem !important;
     font-weight: 600 !important;
     box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
-    margin: 2rem auto !important;
+    margin: 0 auto !important;
     display: block !important;
     width: auto !important;
 }
@@ -182,8 +186,6 @@ st.markdown("""
 <div class="subtitle">
 Automatically identify non-interfering nucleotide<br>
 linkers between a pegRNA and 3' motif.
-<br><br>
-<a href="#">Learn more...</a>
 </div>
 """, unsafe_allow_html=True)
 
@@ -206,22 +208,28 @@ st.markdown("""
 updated_rows = []
 for idx, row in enumerate(st.session_state.rows):
     st.markdown("<div class='table-input-row'>", unsafe_allow_html=True)
-    cols = st.columns([1, 1.5, 1.5, 1, 1, 1.5])
+    cols = st.columns([1, 1.6, 1.6, 1, 1.1, 1.6])
     
-    updated_row = {}
-    updated_row["spacer"] = cols[0].text_input("", value=row["spacer"], label_visibility="collapsed", key=f"sp_{idx}")
-    updated_row["scaffold"] = cols[1].text_input("", value=row["scaffold"], label_visibility="collapsed", key=f"sc_{idx}")
-    updated_row["template"] = cols[2].text_input("", value=row["template"], label_visibility="collapsed", key=f"t_{idx}")
-    updated_row["pbs"] = cols[3].text_input("", value=row["pbs"], label_visibility="collapsed", key=f"p_{idx}")
-    updated_row["linker"] = cols[4].text_input("", value=row["linker"], label_visibility="collapsed", key=f"lk_{idx}")
-    updated_row["motif"] = cols[5].text_input("", value=row["motif"], label_visibility="collapsed", key=f"m_{idx}")
+    spacer = cols[0].text_input("", value=row["spacer"], label_visibility="collapsed", key=f"sp_{idx}")
+    scaffold = cols[1].text_input("", value=row["scaffold"], label_visibility="collapsed", key=f"sc_{idx}")
+    template = cols[2].text_input("", value=row["template"], label_visibility="collapsed", key=f"t_{idx}")
+    pbs = cols[3].text_input("", value=row["pbs"], label_visibility="collapsed", key=f"p_{idx}")
+    linker = cols[4].text_input("", value=row["linker"], label_visibility="collapsed", key=f"lk_{idx}")
+    motif = cols[5].text_input("", value=row["motif"], label_visibility="collapsed", key=f"m_{idx}")
     
-    updated_rows.append(updated_row)
+    updated_rows.append({
+        "spacer": spacer,
+        "scaffold": scaffold,
+        "template": template,
+        "pbs": pbs,
+        "linker": linker,
+        "motif": motif
+    })
     st.markdown("</div>", unsafe_allow_html=True)
 
-# 第三行：操作按钮（圆圈加号 + 上传箭头）
+# 第三行：操作按钮（圆圈加号）
 st.markdown("<div class='action-row'>", unsafe_allow_html=True)
-col_add, col_upload, _, _, _, _ = st.columns([1, 1.5, 1.5, 1, 1, 1.5])
+col_add, _, _, _, _, _ = st.columns([1, 1.6, 1.6, 1, 1.1, 1.6])
 with col_add:
     if st.button("⊕", key="add_row", help="Add row"):
         st.session_state.rows.append({
@@ -230,10 +238,50 @@ with col_add:
         st.rerun()
 st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ================== 上传区（放在表格下方，官网样式） ==================
+# ================== START 按钮（表格下方） ==================
+st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
+if st.button("START", type="primary"):
+    try:
+        # 批量计算，并把结果直接写回 linker 框
+        for i, row in enumerate(updated_rows):
+            result = peglit_min.pegLIT(
+                seq_spacer=row["spacer"],
+                seq_scaffold=row["scaffold"],
+                seq_template=row["template"],
+                seq_pbs=row["pbs"],
+                seq_motif=row["motif"],
+                linker_pattern=row["linker"],
+                ac_thresh=0.5,
+                u_thresh=3,
+                n_thresh=3,
+                topn=1,
+                epsilon=1e-2,
+                num_repeats=10,
+                num_steps=250,
+                temp_init=0.15,
+                temp_decay=0.9,
+                bottleneck=1,
+                seed=2026,
+                sequences_to_avoid=None
+            )
+            # 把最优结果直接写入 Linker Pattern
+            best_linker = result.iloc[0]['linker']
+            updated_rows[i]["linker"] = best_linker
+
+        # 保存回界面
+        st.session_state.rows = updated_rows
+        st.success("✅ Calculation finished! Result is in Linker Pattern box.")
+        st.rerun()
+
+    except Exception as e:
+        st.error(f"Error: {e}")
+
+st.markdown("</div>", unsafe_allow_html=True)
+
+# ================== 上传区 ==================
 st.markdown("""
 <div class="upload-area">
-    <div class="upload-icon">☁️⬆️</div>
+    <div class="upload-icon">☁️</div>
     <div class="upload-text">
         <h3>Drag and drop file here</h3>
         <p>Limit 200MB per file • CSV</p>
@@ -241,68 +289,9 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 上传功能
 uploaded_file = st.file_uploader("", type="csv", label_visibility="collapsed")
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
     df.columns = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
     st.session_state.rows = df.to_dict("records")
     st.rerun()
-
-# 更新会话状态
-st.session_state.rows = updated_rows
-
-# ================== START按钮（官网同款） ==================
-st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
-if st.button("START", type="primary"):
-    # 输入校验
-    df_input = pd.DataFrame(st.session_state.rows)
-    if df_input.isnull().values.any() or (df_input == "").values.any():
-        st.error("❌ Please fill in all fields!")
-        st.stop()
-
-    with st.spinner("🔬 Calculating..."):
-        try:
-            # 批量计算
-            results = []
-            for _, row in df_input.iterrows():
-                result = peglit_min.pegLIT(
-                    seq_spacer=row["spacer"],
-                    seq_scaffold=row["scaffold"],
-                    seq_template=row["template"],
-                    seq_pbs=row["pbs"],
-                    seq_motif=row["motif"],
-                    linker_pattern=row["linker"],
-                    ac_thresh=0.5,
-                    u_thresh=3,
-                    n_thresh=3,
-                    topn=100,
-                    epsilon=1e-2,
-                    num_repeats=10,
-                    num_steps=250,
-                    temp_init=0.15,
-                    temp_decay=0.9,
-                    bottleneck=1,
-                    seed=2026,
-                    sequences_to_avoid=None
-                )
-                results.append(result)
-
-            # 合并结果
-            final_result = pd.concat(results, ignore_index=True)
-            st.success("✅ Calculation complete!")
-            st.dataframe(final_result, use_container_width=True)
-
-            # 下载结果
-            csv = final_result.to_csv(index=False)
-            st.download_button(
-                label="📥 Download Results",
-                data=csv,
-                file_name="peglit_result.csv",
-                mime="text/csv"
-            )
-
-        except Exception as e:
-            st.error(f"❌ Error: {str(e)}")
-            st.exception(e)
-st.markdown("</div>", unsafe_allow_html=True)
