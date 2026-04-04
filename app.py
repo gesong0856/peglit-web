@@ -2,6 +2,7 @@
 # 已删除：所有 Flask / CORS / threading 无关代码
 # 已删除：官网映射表、任务队列、后端接口
 # 只保留：纯 Streamlit 网页 + peglit 调用
+st.set_page_config(page_title="pegLIT 长序列版", layout="wide")
 
 import streamlit as st
 import numpy as np
@@ -11,7 +12,6 @@ import peglit_min
 
 
 # ===================== 网页界面 =====================
-st.set_page_config(page_title="pegLIT 长序列版", layout="wide")
 st.title("pegLIT — 支持 >150nt 长序列")
 st.markdown("---")
 
