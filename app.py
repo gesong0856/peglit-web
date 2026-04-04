@@ -9,8 +9,6 @@ import pandas as pd
 import RNA
 import peglit_min
 
-# ===================== 核心：解除长度限制 =====================
-RNA.set_parameter("max_length", 2000)
 
 # ===================== 网页界面 =====================
 st.set_page_config(page_title="pegLIT 长序列版", layout="wide")
