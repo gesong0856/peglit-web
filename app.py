@@ -61,7 +61,7 @@ h1 {
 /* 表头行：字体缩小+间距拉开 */
 .table-header {
     display: grid;
-    grid-template-columns: 1fr 1.6fr 1.6fr 1fr 1.1fr 1.6fr;
+    grid-template-columns: 1fr 1.7fr 1.7fr 1fr 1.2fr 1.7fr;
     gap: 1rem;
     background-color: #ffffff;
     padding: 1.25rem 1.5rem;
@@ -73,7 +73,7 @@ h1 {
 /* 输入行（第二行：6列输入框） */
 .table-input-row {
     display: grid;
-    grid-template-columns: 1fr 1.6fr 1.6fr 1fr 1.1fr 1.6fr;
+    grid-template-columns: 1fr 1.7fr 1.7fr 1fr 1.2fr 1.7fr;
     gap: 1rem;
     padding: 0.75rem 1.5rem;
     border-bottom: 1px solid #e5e7eb;
