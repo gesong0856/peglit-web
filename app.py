@@ -314,12 +314,12 @@ if st.button("START", type="primary"):
         try:
             for i, r in enumerate(st.session_state.rows):
                 # 关键修复：每个键都做兜底，避免缺失
-                spacer = r.get("spacer", DEFAULT_SEQ["spacer"])
-                scaffold = r.get("scaffold", DEFAULT_SEQ["scaffold"])
-                template = r.get("template", DEFAULT_SEQ["template"])
-                pbs = r.get("pbs", DEFAULT_SEQ["pbs"])  # 重点：pbs键兜底
-                motif = r.get("motif", DEFAULT_SEQ["motif"])
-                linker = r.get("linker", DEFAULT_SEQ["linker"])
+                spacer = r.get("spacer", DEFAULT_SEQ["spacer"]).upper().strip()
+                scaffold = r.get("scaffold", DEFAULT_SEQ["scaffold"]).upper().strip()
+                template = r.get("template", DEFAULT_SEQ["template"]).upper().strip()
+                pbs = r.get("pbs", DEFAULT_SEQ["pbs"]) .upper().strip() # 重点：pbs键兜底
+                motif = r.get("motif", DEFAULT_SEQ["motif"]).upper().strip()
+                linker = r.get("linker", DEFAULT_SEQ["linker"]).upper().strip()
                 
                 # 调用工具
                 st.write(f"正在计算 Row {i+1}...")
