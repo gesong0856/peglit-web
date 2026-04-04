@@ -8,7 +8,7 @@ import pandas as pd
 import RNA
 import peglit_min
 
-# ====================== 1. 初始化（只执行一次，不被覆盖） ======================
+# ====================== 1. 初始化（增强健壮性） ======================
 DEFAULT_SEQ = {
     "spacer": "ACCCTGCCTTGCTAAGGCCA",
     "scaffold": "GTTTCAGAGCTATGCTGGAAACAGCATAGCAAGTTGAAATAAGGCTAGTCCGTTATCAACTTGAAAAAGTGGCACCGAGTCGGTGC",
@@ -135,7 +135,6 @@ h1 {
 }
 
 /* 上传按钮（直接用文件框做按钮，100%可点击） */
-/* 隐藏文件框的默认label和边框，只保留图标样式 */
 div[data-testid="stFileUploader"] {
     width: 48px;
     height: 48px;
@@ -151,11 +150,9 @@ div[data-testid="stFileUploader"]:hover {
     border-color: #3b82f6;
     background: #f3f4f6;
 }
-/* 隐藏文件框的默认文字和按钮 */
 div[data-testid="stFileUploader"] > div {
     display: none !important;
 }
-/* 用CSS添加上传图标 */
 div[data-testid="stFileUploader"]::after {
     content: "⬆️";
     position: absolute;
@@ -166,7 +163,6 @@ div[data-testid="stFileUploader"]::after {
     color: #374151;
     pointer-events: none;
 }
-/* hover提示 */
 div[data-testid="stFileUploader"]::before {
     content: "Import CSV";
     position: absolute;
@@ -192,7 +188,7 @@ div[data-testid="stFileUploader"]:hover::before {
 
 /* START按钮（蓝色） */
 .stButton>button[kind="primary"] {
-    background-color: #2563eb; /* 蓝色 */
+    background-color: #2563eb;
     color: white !important;
     border: none !important;
     border-radius: 12px !important;
@@ -200,7 +196,7 @@ div[data-testid="stFileUploader"]:hover::before {
     font-size: 1.2rem !important;
 }
 .stButton>button[kind="primary"]:hover {
-    background-color: #1d4ed8; /* 深蓝色（hover） */
+    background-color: #1d4ed8;
     color: white !important;
 }
 
@@ -217,10 +213,9 @@ Automatically identify non-interfering nucleotide linkers between a pegRNA and 3
 </div>
 """, unsafe_allow_html=True)
 
-# ====================== 4. 表格渲染（正确绑定初始值） ======================
+# ====================== 4. 表格渲染 ======================
 st.markdown("<div class='table-card'>", unsafe_allow_html=True)
 
-# 表头
 st.markdown("""
 <div class="table-header">
     <div>Spacer</div>
@@ -232,7 +227,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 输入行（遍历session_state，初始值100%显示）
 for idx, row in enumerate(st.session_state.rows):
     st.markdown("<div class='table-input-row'>", unsafe_allow_html=True)
     cols = st.columns([1, 1.5, 1.5, 1, 1, 1.5])
@@ -276,59 +270,77 @@ for idx, row in enumerate(st.session_state.rows):
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ====================== 5. 操作按钮行（核心修复：直接用文件框做按钮） ======================
+# ====================== 5. 操作按钮行 ======================
 st.markdown("<div class='action-row'>", unsafe_allow_html=True)
 
-# 1. 加号按钮
 if st.button("⊕", key="add_row", help="Add new row"):
     st.session_state.rows.append(DEFAULT_SEQ.copy())
     st.rerun()
 
-# 2. 上传按钮（直接用st.file_uploader，CSS美化成图标，100%可点击）
+# 上传按钮 + 修复CSV导入逻辑
 uploaded_file = st.file_uploader("Upload CSV", type="csv", label_visibility="collapsed", key="csv_upload")
 if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    df.columns = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
-    # 批量导入到现有行
-    for i, row in df.iterrows():
-        if i < len(st.session_state.rows):
-            st.session_state.rows[i] = row.to_dict()
-    st.success("✅ CSV imported successfully!")
-    st.rerun()
+    try:
+        df = pd.read_csv(uploaded_file)
+        # 强制对齐列名（忽略大小写+补全缺失列）
+        df.columns = df.columns.str.lower()  # 统一列名为小写
+        required_cols = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
+        # 补全缺失的列，用默认值填充
+        for col in required_cols:
+            if col not in df.columns:
+                df[col] = DEFAULT_SEQ[col]
+        # 只保留需要的列，避免多余列干扰
+        df = df[required_cols]
+        
+        # 导入数据：不足的行覆盖，多余的行新增
+        for i, (_, row) in enumerate(df.iterrows()):
+            row_dict = row.to_dict()
+            if i < len(st.session_state.rows):
+                st.session_state.rows[i] = row_dict
+            else:
+                st.session_state.rows.append(row_dict)
+        st.success("✅ CSV imported successfully!")
+        st.rerun()
+    except Exception as e:
+        st.error(f"❌ CSV import failed: {str(e)}")
 
 st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ====================== 6. START按钮 ======================
+# ====================== 6. START按钮（核心修复：防键缺失） ======================
 st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
 if st.button("START", type="primary"):
     with st.spinner("🔄 Running... Please wait"):
         try:
-            # 遍历每一行计算
             for i, r in enumerate(st.session_state.rows):
-                # 调用pegLIT工具
+                # 关键修复：每个键都做兜底，避免缺失
+                spacer = r.get("spacer", DEFAULT_SEQ["spacer"])
+                scaffold = r.get("scaffold", DEFAULT_SEQ["scaffold"])
+                template = r.get("template", DEFAULT_SEQ["template"])
+                pbs = r.get("pbs", DEFAULT_SEQ["pbs"])  # 重点：pbs键兜底
+                motif = r.get("motif", DEFAULT_SEQ["motif"])
+                linker = r.get("linker", DEFAULT_SEQ["linker"])
+                
+                # 调用工具
                 result = peglit_min.pegLIT(
-                    seq_spacer=r["spacer"],
-                    seq_scaffold=r["scaffold"],
-                    seq_template=r["template"],
-                    seq_pbs=r["pbs"],
-                    seq_motif=r["motif"],
-                    linker_pattern=r["linker"]
+                    seq_spacer=spacer,
+                    seq_scaffold=scaffold,
+                    seq_template=template,
+                    seq_pbs=pbs,
+                    seq_motif=motif,
+                    linker_pattern=linker
                 )
-                # 【核心修复】判断返回值类型，避免字符串下标错误
+                
+                # 更新linker
                 if isinstance(result, list) and len(result) > 0:
-                    # 返回列表，取第一个元素的linker
-                    st.session_state.rows[i]["linker"] = result[0].get("linker", "NNNNNNNN")
+                    st.session_state.rows[i]["linker"] = result[0].get("linker", DEFAULT_SEQ["linker"])
                 elif isinstance(result, dict):
-                    # 返回字典，直接取linker
-                    st.session_state.rows[i]["linker"] = result.get("linker", "NNNNNNNN")
+                    st.session_state.rows[i]["linker"] = result.get("linker", DEFAULT_SEQ["linker"])
                 else:
-                    # 其他情况，保留默认值
                     st.warning(f"Row {i+1}: No valid linker result, keeping default.")
             st.success("✅ Calculation completed!")
             st.rerun()
         except Exception as e:
             st.error(f"❌ Error: {str(e)}")
-            # 打印详细错误日志，方便排查
             st.exception(e)
 
 st.markdown("</div>", unsafe_allow_html=True)
