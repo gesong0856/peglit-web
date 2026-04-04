@@ -327,7 +327,19 @@ if st.button("START", type="primary"):
                     seq_template=template,
                     seq_pbs=pbs,
                     seq_motif=motif,
-                    linker_pattern=linker
+                    linker_pattern=linker,
+                    ac_thresh=0.5,
+                    u_thresh=3,
+                    n_thresh=3,
+                    topn=100,
+                    epsilon=1e-2,
+                    num_repeats=10,
+                    num_steps=250,
+                    temp_init=0.15,
+                    temp_decay=0.9,
+                    bottleneck=1,
+                    seed=2020,
+                    sequences_to_avoid=None
                 )
                 
                 # 更新linker
