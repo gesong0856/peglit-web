@@ -17,7 +17,7 @@ if "rows" not in st.session_state:
         {"spacer": "", "scaffold": "GTTTTAG...", "template": "", "pbs": "", "linker": "NNNNNNNN", "motif": "tevopreQ₁\nCGCGGT..."}
     ]
 
-# ================== 样式：1:1 还原官网表格+图标样式 ==================
+# ================== 样式：修改上传区图标为小箭头，缩小尺寸 ==================
 st.markdown("""
 <style>
 /* 全局重置 */
@@ -107,7 +107,7 @@ h1 {
     background-color: #f3f4f6 !important;
 }
 
-/* 操作按钮行：加号+Import CSV图标 */
+/* 操作按钮行：加号+小箭头上传图标 */
 .action-row {
     display: grid;
     grid-template-columns: 0.5fr 0.5fr 5fr;
@@ -135,24 +135,15 @@ h1 {
     color: #3b82f6;
 }
 
-/* Import CSV 图标按钮 */
-.csv-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border: 1px solid #d1d5db;
-    background: #f3f4f6;
-    font-size: 18px;
-    color: #6b7280;
+/* 【修改后】小箭头上传图标：缩小尺寸 */
+.upload-icon {
+    width: 24px;  /* 缩小尺寸 */
+    height: 24px;
+    fill: #6b7280;  /* 灰色样式 */
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
-.csv-btn:hover {
-    background: #e5e7eb;
-    border-color: #3b82f6;
-    color: #3b82f6;
+.upload-icon:hover {
+    fill: #3b82f6;
 }
 
 /* START按钮 */
@@ -171,7 +162,6 @@ h1 {
     box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
     margin: 0 auto !important;
     display: block !important;
-    width: auto !important;
 }
 .stButton>button[kind="primary"]:hover {
     background-color: #2563eb !important;
@@ -223,9 +213,8 @@ for idx, row in enumerate(st.session_state.rows):
     updated_rows.append(updated_row)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# 操作按钮行：加号 + Import CSV 图标
+# 操作按钮行：加号 + 小箭头上传图标
 st.markdown("<div class='action-row'>", unsafe_allow_html=True)
-# 修复：把 auto 换成具体比例 0.5fr 0.5fr 5fr
 col_add, col_csv, _ = st.columns([0.5, 0.5, 5])
 
 # 圆圈加号：添加行
@@ -236,9 +225,17 @@ with col_add:
         })
         st.rerun()
 
-# Import CSV 图标：上传文件
+# 【修改后】用SVG小箭头图标代替，缩小尺寸
 with col_csv:
-    uploaded_file = st.file_uploader("⬆️", type="csv", label_visibility="collapsed", key="csv_upload")
+    # 嵌入SVG小箭头图标
+    upload_svg = """
+    <svg class="upload-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L12 14M12 14L16 10M12 14L8 10M21 14V18C21 19.1046 20.1046 20 19 20H5C3.89543 20 3 19.1046 3 18V14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    """
+    st.markdown(upload_svg, unsafe_allow_html=True)
+    # 隐藏式文件上传
+    uploaded_file = st.file_uploader("", type="csv", label_visibility="collapsed", key="csv_upload")
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
         df.columns = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
