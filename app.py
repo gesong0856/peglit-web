@@ -1,4 +1,4 @@
-# 【必须放在最最开头！】第一个 Streamlit 命令，不能有任何前置 st.xxx 或 import
+# 【必须放在最最开头！】第一个 Streamlit 命令
 import streamlit as st
 st.set_page_config(page_title="pegLIT 长序列版", layout="wide")
 
@@ -8,7 +8,7 @@ import pandas as pd
 import RNA
 import peglit_min
 
-# 新版ViennaRNA默认支持长序列，删除旧版API调用，彻底解决AttributeError
+# 新版ViennaRNA默认支持长序列，删除旧版API调用
 # RNA.set_parameter("max_length", 2000)
 
 # ================== 会话状态：支持多行输入 ==================
@@ -78,29 +78,83 @@ with col_btn2:
     uploaded_file = st.file_uploader("⬆️ Import CSV", type="csv", label_visibility="collapsed")
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
+        # 确保CSV列名匹配
+        df.columns = ["spacer", "scaffold", "template", "pbs", "motif", "linker"]
         st.session_state.rows = df.to_dict("records")
         st.rerun()
 
 st.markdown("---")
 
-# ================== 动态多行输入区域 ==================
+# ================== 动态多行输入区域（修复key冲突） ==================
+updated_rows = []
 for idx, row in enumerate(st.session_state.rows):
     st.markdown(f"#### 序列组 {idx+1}")
     col1, col2 = st.columns(2)
+    
+    # 用唯一key：sp_{idx}_{uuid} 避免冲突
     with col1:
-        row["spacer"]   = st.text_area(f"Spacer 序列 {idx}", value=row["spacer"], height=100, placeholder="输入Spacer序列", key=f"sp_{idx}")
-        row["scaffold"] = st.text_area(f"Scaffold 序列 {idx}", value=row["scaffold"], height=100, placeholder="输入Scaffold序列", key=f"sc_{idx}")
-        row["template"] = st.text_area(f"Template 序列 {idx}", value=row["template"], height=100, placeholder="输入Template序列", key=f"t_{idx}")
+        spacer = st.text_area(
+            f"Spacer 序列", 
+            value=row["spacer"], 
+            height=100, 
+            placeholder="输入Spacer序列",
+            key=f"sp_{idx}"
+        )
+        scaffold = st.text_area(
+            f"Scaffold 序列", 
+            value=row["scaffold"], 
+            height=100, 
+            placeholder="输入Scaffold序列",
+            key=f"sc_{idx}"
+        )
+        template = st.text_area(
+            f"Template 序列", 
+            value=row["template"], 
+            height=100, 
+            placeholder="输入Template序列",
+            key=f"t_{idx}"
+        )
+    
     with col2:
-        row["pbs"]      = st.text_area(f"PBS 序列 {idx}", value=row["pbs"], height=100, placeholder="输入PBS序列", key=f"p_{idx}")
-        row["motif"]    = st.text_area(f"Motif 序列 {idx}", value=row["motif"], height=100, placeholder="输入Motif序列", key=f"m_{idx}")
-        row["linker"]   = st.text_input(f"Linker 模式 {idx}", value=row["linker"], help="默认8个N，可自定义长度", key=f"lk_{idx}")
+        pbs = st.text_area(
+            f"PBS 序列", 
+            value=row["pbs"], 
+            height=100, 
+            placeholder="输入PBS序列",
+            key=f"p_{idx}"
+        )
+        motif = st.text_area(
+            f"Motif 序列", 
+            value=row["motif"], 
+            height=100, 
+            placeholder="输入Motif序列",
+            key=f"m_{idx}"
+        )
+        linker = st.text_input(
+            f"Linker 模式", 
+            value=row["linker"], 
+            help="默认8个N，可自定义长度",
+            key=f"lk_{idx}"
+        )
+    
+    # 保存更新后的数据
+    updated_rows.append({
+        "spacer": spacer,
+        "scaffold": scaffold,
+        "template": template,
+        "pbs": pbs,
+        "motif": motif,
+        "linker": linker
+    })
     st.markdown("---")
 
-# ================== 官网同款START按钮（替换原运行计算） ==================
+# 更新会话状态（关键：避免数据丢失）
+st.session_state.rows = updated_rows
+
+# ================== 官网同款START按钮 ==================
 if st.button("START", type="primary"):
     all_results = []
-    # 先做输入校验
+    # 输入校验
     for i, r in enumerate(st.session_state.rows):
         if not all([r["spacer"], r["scaffold"], r["template"], r["pbs"], r["motif"]]):
             st.error(f"❌ 第 {i+1} 组序列未填写完整！")
