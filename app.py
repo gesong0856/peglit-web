@@ -102,6 +102,7 @@ h1 {
     background: #f3f4f6 !important;
     color: #1e40af !important; /* 深蓝 */
     cursor: not-allowed !important;
+    opacity: 1 !important;
 }
 
 /* 按钮行（对齐+可点击） */
