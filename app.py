@@ -306,7 +306,7 @@ if uploaded_file is not None:
 
 st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ====================== 6. START按钮（核心修复：防键缺失） ======================
+# ====================== 6. START按钮（核心修复：兼容所有返回格式） ======================
 st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
 if st.button("START", type="primary"):
     with st.spinner("🔄 Running... Please wait"):
@@ -342,15 +342,32 @@ if st.button("START", type="primary"):
                     sequences_to_avoid=None
                 )
                 
-                # 更新linker
-                if isinstance(result, list) and len(result) > 0:
-                    st.session_state.rows[i]["linker"] = result[0].get("linker", DEFAULT_SEQ["linker"])
+                # ========== 核心修复：兼容字符串/列表/字典所有返回格式 ==========
+                new_linker = DEFAULT_SEQ["linker"]  # 默认值
+                if isinstance(result, str):
+                    # 情况1：算法直接返回linker字符串（如"ATCGATCG"）
+                    new_linker = result
+                elif isinstance(result, list) and len(result) > 0:
+                    # 情况2：返回列表 → 兼容列表内是字典/字符串
+                    if isinstance(result[0], dict):
+                        new_linker = result[0].get("linker", DEFAULT_SEQ["linker"])
+                    else:
+                        # 列表内是字符串（如["ATCGATCG"]）
+                        new_linker = result[0]
                 elif isinstance(result, dict):
-                    st.session_state.rows[i]["linker"] = result.get("linker", DEFAULT_SEQ["linker"])
+                    # 情况3：返回字典
+                    new_linker = result.get("linker", DEFAULT_SEQ["linker"])
+                # 情况4：其他格式（None/空）→ 保留默认值
+                
+                # 更新linker并提示
+                st.session_state.rows[i]["linker"] = new_linker
+                if new_linker == DEFAULT_SEQ["linker"]:
+                    st.warning(f"Row {i+1}: No valid linker result, keeping default (NNNNNNNN).")
                 else:
-                    st.warning(f"Row {i+1}: No valid linker result, keeping default.")
+                    st.success(f"Row {i+1}: Linker updated to {new_linker}")
+            
             st.success("✅ Calculation completed!")
-            st.rerun()
+            st.rerun()  # 强制刷新界面显示新结果
         except Exception as e:
             st.error(f"❌ Error: {str(e)}")
             st.exception(e)
