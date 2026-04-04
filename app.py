@@ -1,339 +1,185 @@
+# 必须放在最开头
 import streamlit as st
 st.set_page_config(page_title="pegLIT", layout="wide")
 
 import pandas as pd
+import numpy as np
 import RNA
-import peglit_min
+import peglit_min  # 你的核心算法文件
 
-# ====================== 1. 【核心修复】初始化放在最顶部，优先执行 ======================
-DEFAULT_SEQ = {
-    "spacer": "ACCCTGCCTTGCTAAGGCCA",
-    "scaffold": "GTTTCAGAGCTATGCTGGAAACAGCATAGCAAGTTGAAATAAGGCTAGTCCGTTATCAACTTGAAAAAGTGGCACCGAGTCGGTGC",
-    "template": "TTTCAATGTTCTCTCTGATcGCGTATTTGCATGCcctCTGGCAGATTTCTGTgATgTCAGCACCACTGAAACCTTGcGTaTATTTGGCAAGAGCATTCAGaTCTACgTCCTTGGCCACAGGTGACTTtctGAGGCAAGCTTTGAAGATCTGCAGgcgAGATTGATCATCAGGCAGtGGgATGTAGATAAGCTGATCAAGACGaCCTGG",
-    "pbs": "CCTTAGCAAG",
-    "linker": "NNNNNNNN",
-    "motif": "TTGACGCGGTTCTATCTAGTTACGCGTTAAACCAACTAGAAA"
-}
-
-# 只初始化一次，避免rerun覆盖
-if "rows" not in st.session_state:
-    st.session_state.rows = [DEFAULT_SEQ.copy()]
-if "show_upload" not in st.session_state:
-    st.session_state.show_upload = False
-
-# ====================== 2. 全局样式 ======================
+# ================== 全局样式（复刻官网） ==================
 st.markdown("""
 <style>
-/* 全局重置 */
-* {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
+/* 全局字体和背景 */
 body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     background-color: #ffffff;
 }
-
-/* 标题 */
+/* 标题样式 */
 h1 {
     text-align: center;
-    font-size: 3rem;
+    font-size: 4rem;
     font-weight: 700;
-    margin: 2rem 0 0.5rem !important;
-    color: #1f2937;
+    color: #212529;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
 }
+/* 副标题样式 */
 .subtitle {
     text-align: center;
-    font-size: 1.1rem;
-    color: #6b7280;
+    font-size: 1.75rem;
+    color: #6c757d;
     margin-bottom: 2rem;
-    line-height: 1.6;
+    line-height: 1.5;
 }
-
-/* 表格卡片 */
-.table-card {
+/* 表格容器 */
+.table-container {
     max-width: 1200px;
-    margin: 0 auto 1rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    overflow: hidden;
-    background: white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-/* 表头 */
-.table-header {
-    display: grid;
-    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
-    gap: 0;
-    background: #fff;
-    padding: 1.25rem 0;
-    font-weight: 500;
-    font-size: 1.2rem;
-    border-bottom: 1px solid #e5e7eb;
-}
-.table-header > div {
+    margin: 0 auto;
     padding: 0 1rem;
-    text-align: left;
-    line-height: 1.5;
 }
-
-/* 输入行 */
-.table-input-row {
-    display: grid;
-    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
-    gap: 0;
-    border-bottom: 1px solid #e5e7eb;
-    align-items: center;
-}
-
-/* 输入框样式（绑定初始值+Linker只读） */
-.table-input-row input {
-    width: 100%;
-    border: none !important;
-    outline: none !important;
-    font-size: 1rem;
-    padding: 0.75rem 1rem;
-    background: transparent !important;
-    line-height: 1.5;
-}
-.table-input-row input:disabled {
-    background: #f3f4f6 !important;
-    color: #6b7280 !important;
-    cursor: not-allowed !important;
-}
-
-/* 按钮行（对齐+hover提示） */
-.action-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    height: 48px;
-}
-
-/* 加号按钮 */
-.add-btn {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    border: 1px solid #d1d5db;
-    background: white;
-    font-size: 20px;
-    color: #374151;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.add-btn:hover {
-    border-color: #3b82f6;
-    color: #3b82f6;
-    background: #f3f4f6;
-}
-
-/* 上传图标按钮 */
-.upload-btn {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    border: 1px solid transparent;
-    background: transparent;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-    position: relative;
-}
-.upload-btn:hover {
-    background: #f3f4f6;
-}
-/* hover提示 */
-.upload-btn::after {
-    content: "Import CSV";
-    position: absolute;
-    bottom: 120%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #1f2937;
+/* 按钮样式 */
+.stButton>button {
+    background-color: #415E9B;
     color: white;
-    padding: 4px 8px;
+    border: none;
     border-radius: 4px;
-    font-size: 12px;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.2s;
-    z-index: 999;
+    padding: 0.75rem 2rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 2rem auto;
+    display: block;
+    cursor: pointer;
 }
-.upload-btn:hover::after {
-    opacity: 1;
-    visibility: visible;
+.stButton>button:hover {
+    background-color: #324b7a;
 }
-
-/* 上传图标SVG */
-.upload-icon {
-    width: 24px;
-    height: 24px;
-    fill: #374151;
+/* 操作按钮（+和↑） */
+.action-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    margin: 0 0.25rem;
 }
-
-/* 隐藏原生上传区 */
-div[data-testid="stFileUploader"] {
-    display: none !important;
-}
-
-/* START按钮 */
-.start-btn-container {
-    text-align: center;
-    margin: 1rem 0 2rem;
-}
-.stButton>button[kind="primary"] {
-    background-color: #3b82f6 !important;
-    color: white !important;
-    border: none !important;
-    border-radius: 8px !important;
-    padding: 0.8rem 2.5rem !important;
-    font-size: 1.2rem !important;
-}
-.stButton>button[kind="primary"]:hover {
-    background-color: #2563eb !important;
-}
-
-/* 隐藏默认元素 */
-#MainMenu, footer, header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-# ====================== 3. 页面标题 ======================
+# ================== 页面标题（复刻官网） ==================
 st.markdown("<h1>pegLIT</h1>", unsafe_allow_html=True)
 st.markdown("""
 <div class="subtitle">
-Automatically identify non-interfering nucleotide linkers between a pegRNA and 3' motif.
+Automatically identify non-interfering nucleotide<br>
+linkers between a pegRNA and 3' motif.
+<br><br>
+<a href="#" style="color: #6c757d; text-decoration: none;">Learn more...</a>
 </div>
 """, unsafe_allow_html=True)
 
-# ====================== 4. 表格渲染（正确绑定初始值） ======================
-st.markdown("<div class='table-card'>", unsafe_allow_html=True)
+# ================== 初始化会话状态（多行输入） ==================
+if "rows" not in st.session_state:
+    # 初始1行数据
+    st.session_state.rows = [{
+        "Spacer": "",
+        "Scaffold": "",
+        "Template": "",
+        "PBS": "",
+        "Linker Pattern": "NNNNNNNN",
+        "Motif": ""
+    }]
 
-# 表头
-st.markdown("""
-<div class="table-header">
-    <div>Spacer</div>
-    <div>Scaffold</div>
-    <div>Template</div>
-    <div>PBS</div>
-    <div>Linker Pattern</div>
-    <div>Motif</div>
-</div>
-""", unsafe_allow_html=True)
-
-# 输入行（遍历session_state，正确绑定初始值）
-for idx, row in enumerate(st.session_state.rows):
-    st.markdown("<div class='table-input-row'>", unsafe_allow_html=True)
-    cols = st.columns([1, 1.5, 1.5, 1, 1, 1.5])
-    
-    # 【关键】value参数绑定row的对应字段，初始值100%显示
-    cols[0].text_input(
-        label=f"spacer_{idx}",
-        value=row["spacer"],
-        label_visibility="collapsed",
-        key=f"spacer_{idx}"
-    )
-    cols[1].text_input(
-        label=f"scaffold_{idx}",
-        value=row["scaffold"],
-        label_visibility="collapsed",
-        key=f"scaffold_{idx}"
-    )
-    cols[2].text_input(
-        label=f"template_{idx}",
-        value=row["template"],
-        label_visibility="collapsed",
-        key=f"template_{idx}"
-    )
-    cols[3].text_input(
-        label=f"pbs_{idx}",
-        value=row["pbs"],
-        label_visibility="collapsed",
-        key=f"pbs_{idx}"
-    )
-    # Linker Pattern 只读，仅输出
-    cols[4].text_input(
-        label=f"linker_{idx}",
-        value=row["linker"],
-        label_visibility="collapsed",
-        disabled=True,
-        key=f"linker_{idx}"
-    )
-    cols[5].text_input(
-        label=f"motif_{idx}",
-        value=row["motif"],
-        label_visibility="collapsed",
-        key=f"motif_{idx}"
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# ====================== 5. 操作按钮行（对齐+hover提示） ======================
-st.markdown("<div class='action-row'>", unsafe_allow_html=True)
-
-# 1. 加号按钮：添加新行（用默认值填充）
-if st.button("⊕", key="add_row", help="Add new row"):
-    st.session_state.rows.append(DEFAULT_SEQ.copy())
-    st.rerun()
-
-# 2. 上传图标按钮（点击触发上传）
-upload_svg = """
-<div class="upload-btn">
-    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M17 8L12 13L7 8M12 13V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-</div>
-"""
-st.markdown(upload_svg, unsafe_allow_html=True)
-
-# 点击图标触发上传
-if st.button("", key="upload_btn", label_visibility="collapsed"):
-    st.session_state.show_upload = True
-    st.rerun()
-
-st.markdown("</div></div>", unsafe_allow_html=True)
-
-# ====================== 6. 隐藏式上传 ======================
-if st.session_state.show_upload:
-    uploaded_file = st.file_uploader("Upload CSV", type="csv", label_visibility="collapsed", key="csv_upload")
+# ================== 操作按钮区（添加行/导入CSV） ==================
+col1, col2 = st.columns([1, 1])
+with col1:
+    if st.button("➕", key="add_row", help="添加一行"):
+        # 新增空行
+        st.session_state.rows.append({
+            "Spacer": "",
+            "Scaffold": "",
+            "Template": "",
+            "PBS": "",
+            "Linker Pattern": "NNNNNNNN",
+            "Motif": ""
+        })
+        st.rerun()
+with col2:
+    uploaded_file = st.file_uploader("⬆️", type="csv", key="import_csv", help="导入CSV文件", label_visibility="collapsed")
     if uploaded_file is not None:
+        # 读取CSV并更新行数据
         df = pd.read_csv(uploaded_file)
-        df.columns = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
-        # 自动填入对应行
-        for i, row in df.iterrows():
-            if i < len(st.session_state.rows):
-                st.session_state.rows[i] = row.to_dict()
-        st.session_state.show_upload = False
+        st.session_state.rows = df.to_dict("records")
         st.rerun()
 
-# ====================== 7. START按钮+运行中提示（修复iloc错误） ======================
-st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
-if st.button("START", type="primary"):
-    with st.spinner("🔄 Running... Please wait"):
-        try:
-            # 遍历每一行计算
-            for i, r in enumerate(st.session_state.rows):
-                result = peglit_min.pegLIT(
-                    seq_spacer=r["spacer"],
-                    seq_scaffold=r["scaffold"],
-                    seq_template=r["template"],
-                    seq_pbs=r["pbs"],
-                    seq_motif=r["motif"],
-                    linker_pattern=r["linker"]
-                )
-                # 提取结果（list取索引，无需iloc）
-                st.session_state.rows[i]["linker"] = result[0]["linker"]
-            st.success("✅ Calculation completed!")
-            st.rerun()
-        except Exception as e:
-            st.error(f"❌ Error: {str(e)}")
+# ================== 输入表格（复刻官网） ==================
+st.markdown("<div class='table-container'>", unsafe_allow_html=True)
 
+# 表头
+cols = st.columns(6)
+headers = ["Spacer", "Scaffold", "Template", "PBS", "Linker Pattern", "Motif"]
+for col, header in zip(cols, headers):
+    col.write(f"**{header}**")
+
+# 输入行
+updated_rows = []
+for i, row in enumerate(st.session_state.rows):
+    cols = st.columns(6)
+    updated_row = {}
+    updated_row["Spacer"] = cols[0].text_input(f"spacer_{i}", value=row["Spacer"], label_visibility="collapsed")
+    updated_row["Scaffold"] = cols[1].text_input(f"scaffold_{i}", value=row["Scaffold"], label_visibility="collapsed")
+    updated_row["Template"] = cols[2].text_input(f"template_{i}", value=row["Template"], label_visibility="collapsed")
+    updated_row["PBS"] = cols[3].text_input(f"pbs_{i}", value=row["PBS"], label_visibility="collapsed")
+    updated_row["Linker Pattern"] = cols[4].text_input(f"linker_{i}", value=row["Linker Pattern"], label_visibility="collapsed")
+    updated_row["Motif"] = cols[5].text_input(f"motif_{i}", value=row["Motif"], label_visibility="collapsed")
+    updated_rows.append(updated_row)
+
+# 更新会话状态
+st.session_state.rows = updated_rows
 st.markdown("</div>", unsafe_allow_html=True)
+
+# ================== 运行按钮（复刻官网） ==================
+if st.button("START"):
+    # 校验输入
+    df_input = pd.DataFrame(st.session_state.rows)
+    if df_input.isnull().values.any() or (df_input == "").values.any():
+        st.error("❌ 请填写所有输入项！")
+        st.stop()
+
+    with st.spinner("🔬 正在计算..."):
+        try:
+            # 批量计算（支持多行）
+            results = []
+            for _, row in df_input.iterrows():
+                result = peglit_min.pegLIT(
+                    seq_spacer=row["Spacer"],
+                    seq_scaffold=row["Scaffold"],
+                    seq_template=row["Template"],
+                    seq_pbs=row["PBS"],
+                    seq_motif=row["Motif"],
+                    linker_pattern=row["Linker Pattern"],
+                    ac_thresh=0.5,
+                    u_thresh=3,
+                    n_thresh=3,
+                    topn=100
+                )
+                results.append(result)
+
+            # 合并结果
+            final_result = pd.concat(results, ignore_index=True)
+            
+            # 展示结果
+            st.success("✅ 计算完成！")
+            st.dataframe(final_result, use_container_width=True)
+
+            # 下载结果
+            csv = final_result.to_csv(index=False)
+            st.download_button(
+                label="📥 下载结果",
+                data=csv,
+                file_name="peglit_result.csv",
+                mime="text/csv"
+            )
+
+        except Exception as e:
+            st.error(f"❌ 计算出错：{str(e)}")
+            st.exception(e)
