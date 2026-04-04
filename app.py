@@ -17,7 +17,7 @@ if "rows" not in st.session_state:
         {"spacer": "", "scaffold": "GTTTTAG...", "template": "", "pbs": "", "linker": "NNNNNNNN", "motif": "tevopreQ₁\nCGCGGT..."}
     ]
 
-# ================== 样式：修改上传区图标为小箭头，缩小尺寸 ==================
+# ================== 样式：隐藏原生拖拽区，自定义下载图标 ==================
 st.markdown("""
 <style>
 /* 全局重置 */
@@ -61,7 +61,7 @@ h1 {
 /* 表头行：完美居中+单元格内对齐 */
 .table-header {
     display: grid;
-    grid-template-columns: 1fr 1.7fr 1.7fr 1fr 1.2fr 1.7fr;
+    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
     gap: 0;
     background-color: #ffffff;
     padding: 1.25rem 0;
@@ -81,7 +81,7 @@ h1 {
 /* 输入行：与表头完全同步 */
 .table-input-row {
     display: grid;
-    grid-template-columns: 1fr 1.7fr 1.7fr 1fr 1.2fr 1.7fr;
+    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
     gap: 0;
     border-bottom: 1px solid #e5e7eb;
     align-items: center;
@@ -107,7 +107,7 @@ h1 {
     background-color: #f3f4f6 !important;
 }
 
-/* 操作按钮行：加号+小箭头上传图标 */
+/* 操作按钮行：加号+下载图标 */
 .action-row {
     display: grid;
     grid-template-columns: 0.5fr 0.5fr 5fr;
@@ -135,15 +135,20 @@ h1 {
     color: #3b82f6;
 }
 
-/* 【修改后】小箭头上传图标：缩小尺寸 */
-.upload-icon {
-    width: 24px;  /* 缩小尺寸 */
-    height: 24px;
-    fill: #6b7280;  /* 灰色样式 */
+/* 下载图标样式 */
+.download-icon {
+    width: 32px;
+    height: 32px;
+    fill: #6b7280;
     cursor: pointer;
 }
-.upload-icon:hover {
+.download-icon:hover {
     fill: #3b82f6;
+}
+
+/* 【关键】完全隐藏原生文件上传组件 */
+.stFileUploader {
+    display: none !important;
 }
 
 /* START按钮 */
@@ -213,7 +218,7 @@ for idx, row in enumerate(st.session_state.rows):
     updated_rows.append(updated_row)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# 操作按钮行：加号 + 小箭头上传图标
+# 操作按钮行：加号 + 下载图标（隐藏原生上传）
 st.markdown("<div class='action-row'>", unsafe_allow_html=True)
 col_add, col_csv, _ = st.columns([0.5, 0.5, 5])
 
@@ -225,16 +230,16 @@ with col_add:
         })
         st.rerun()
 
-# 【修改后】用SVG小箭头图标代替，缩小尺寸
+# 下载图标：绑定文件上传功能，隐藏原生组件
 with col_csv:
-    # 嵌入SVG小箭头图标
-    upload_svg = """
-    <svg class="upload-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 2L12 14M12 14L16 10M12 14L8 10M21 14V18C21 19.1046 20.1046 20 19 20H5C3.89543 20 3 19.1046 3 18V14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    # 嵌入下载样式SVG图标
+    download_svg = """
+    <svg class="download-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M17 8L12 13L7 8M12 13V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
     """
-    st.markdown(upload_svg, unsafe_allow_html=True)
-    # 隐藏式文件上传
+    st.markdown(download_svg, unsafe_allow_html=True)
+    # 隐藏式文件上传，点击图标触发
     uploaded_file = st.file_uploader("", type="csv", label_visibility="collapsed", key="csv_upload")
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
