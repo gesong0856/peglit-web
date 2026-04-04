@@ -110,7 +110,7 @@ h1 {
 /* 操作按钮行：加号+Import CSV图标 */
 .action-row {
     display: grid;
-    grid-template-columns: auto auto 1fr;
+    grid-template-columns: 0.5fr 0.5fr 5fr;
     gap: 0.5rem;
     padding: 0.8rem 1rem;
     align-items: center;
@@ -171,6 +171,7 @@ h1 {
     box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
     margin: 0 auto !important;
     display: block !important;
+    width: auto !important;
 }
 .stButton>button[kind="primary"]:hover {
     background-color: #2563eb !important;
@@ -224,7 +225,8 @@ for idx, row in enumerate(st.session_state.rows):
 
 # 操作按钮行：加号 + Import CSV 图标
 st.markdown("<div class='action-row'>", unsafe_allow_html=True)
-col_add, col_csv, _ = st.columns([auto, auto, 1])
+# 修复：把 auto 换成具体比例 0.5fr 0.5fr 5fr
+col_add, col_csv, _ = st.columns([0.5, 0.5, 5])
 
 # 圆圈加号：添加行
 with col_add:
