@@ -4,236 +4,213 @@ st.set_page_config(page_title="pegLIT", layout="wide")
 
 import pandas as pd
 import numpy as np
-from peglit_min import pegLIT  # 直接调用你的算法包
+from peglit_min import pegLIT
 
-# ================== 全局样式（1:1复刻官网） ==================
+# ==============================================
+# 【仅修改这里：官网原版样式 + 按钮位置】
+# ==============================================
 st.markdown("""
 <style>
-/* 全局重置 */
+/* 全局 */
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
 }
 body {
     background-color: #ffffff;
-    color: #212529;
 }
-/* 标题样式 */
+
+/* 标题 */
 h1 {
     text-align: center;
     font-size: 5rem;
     font-weight: 700;
-    margin: 2rem 0 1rem;
-    letter-spacing: -0.05em;
+    margin: 2rem 0 0.5rem !important;
+    color: #111827;
 }
-/* 副标题样式 */
+
+/* 副标题 */
 .subtitle {
     text-align: center;
-    font-size: 1.75rem;
-    color: #6c757d;
+    font-size: 1.3rem;
+    color: #6b7280;
+    margin-bottom: 3rem;
     line-height: 1.6;
-    margin-bottom: 2.5rem;
 }
-.subtitle a {
-    color: #6c757d;
-    text-decoration: none;
-    border-bottom: 1px solid #6c757d;
-}
-.subtitle a:hover {
-    color: #415E9B;
-    border-bottom-color: #415E9B;
-}
-/* 表格容器 */
-.table-wrapper {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 1rem;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
+
+/* 表格容器（官网卡片） */
+.table-container {
+    max-width: 1000px;
+    margin: 0 auto 2rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
     overflow: hidden;
+    background: white;
 }
+
 /* 表头 */
 .table-header {
-    display: grid;
-    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
-    background-color: #f8f9fa;
-    padding: 1rem;
-    font-weight: 600;
-    font-size: 1.1rem;
-    border-bottom: 1px solid #dee2e6;
-}
-/* 表行 */
-.table-row {
-    display: grid;
-    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid #dee2e6;
-    align-items: center;
-}
-.table-row:last-child {
-    border-bottom: none;
-}
-/* 输入框 */
-.table-row input {
-    width: 100%;
-    border: none;
-    outline: none;
+    background-color: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 14px 20px;
+    font-weight: 500;
     font-size: 1rem;
-    padding: 0.5rem;
-    background-color: transparent;
+    color: #374151;
 }
-.table-row input:focus {
-    background-color: #f8f9fa;
-    border-radius: 4px;
-}
-/* 操作按钮区 */
-.action-bar {
-    max-width: 1200px;
-    margin: 0.5rem auto 2rem;
-    padding: 0 1rem;
+
+/* 按钮：圆圈加号 + 上传箭头（官网同款位置） */
+.action-row {
+    padding: 12px 20px;
     display: flex;
-    gap: 0.5rem;
+    gap: 12px;
+    align-items: center;
+    border-bottom: 1px solid #e5e7eb;
 }
-.action-btn {
-    background: none;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    width: 36px;
-    height: 36px;
-    font-size: 1.25rem;
+
+/* 圆圈加号按钮 */
+.circle-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid #d1d5db;
+    background: white;
+    font-size: 18px;
+    color: #4b5563;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
 }
-.action-btn:hover {
-    background-color: #f8f9fa;
-    border-color: #415E9B;
+.circle-btn:hover {
+    border-color: #2563eb;
+    color: #2563eb;
 }
-/* START按钮 */
-.start-btn-container {
-    text-align: center;
-    margin: 2rem 0;
-}
-.stButton>button {
-    background-color: #415E9B;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 0.75rem 2rem;
-    font-size: 1.25rem;
-    font-weight: 600;
+
+/* 上传图标 */
+.upload-icon {
+    font-size: 20px;
+    color: #4b5563;
     cursor: pointer;
 }
-.stButton>button:hover {
-    background-color: #324b7a;
+.upload-icon:hover {
+    color: #2563eb;
 }
-/* 隐藏Streamlit默认元素 */
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
+
+/* 输入行 */
+.input-row {
+    padding: 10px 20px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+/* 隐藏 Streamlit 自带元素 */
+#MainMenu, footer, header {visibility: hidden;}
+
+/* START 按钮 */
+.start-button {
+    display: block;
+    margin: 40px auto;
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 14px 36px;
+    font-size: 18px;
+    font-weight: 500;
+    cursor: pointer;
+}
+.start-button:hover {
+    background-color: #2563eb;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ================== 页面标题（复刻官网） ==================
+# ==============================================
+# 标题（官网一模一样）
+# ==============================================
 st.markdown("<h1>pegLIT</h1>", unsafe_allow_html=True)
 st.markdown("""
 <div class="subtitle">
 Automatically identify non-interfering nucleotide<br>
 linkers between a pegRNA and 3' motif.
-<br><br>
-<a href="#">Learn more...</a>
 </div>
 """, unsafe_allow_html=True)
 
-# ================== 初始化会话状态（多行输入） ==================
+# ==============================================
+# 初始化多行
+# ==============================================
 if "rows" not in st.session_state:
     st.session_state.rows = [
         {"Spacer": "", "Scaffold": "", "Template": "", "PBS": "", "Linker Pattern": "NNNNNNNN", "Motif": ""}
     ]
 
-# ================== 操作按钮（+ 添加行 / ↑ 导入CSV） ==================
-st.markdown("<div class='action-bar'>", unsafe_allow_html=True)
-col1, col2 = st.columns([1, 1])
+# ==============================================
+# 【官网同款界面：表格 + 圆圈加号 + 上传箭头】
+# ==============================================
+st.markdown("<div class='table-container'>", unsafe_allow_html=True)
+
+# 表头
+st.markdown("""
+<div class="table-header">
+    Spacer  Scaffold  Template  PBS  Linker Pattern  Motif
+</div>
+""", unsafe_allow_html=True)
+
+# 操作按钮行：圆圈加号 + 上传箭头（官网位置）
+st.markdown("<div class='action-row'>", unsafe_allow_html=True)
+col1, col2, col3 = st.columns([0.1, 0.1, 1])
 with col1:
-    if st.button("➕", key="add_row", help="Add row"):
-        st.session_state.rows.append(
-            {"Spacer": "", "Scaffold": "", "Template": "", "PBS": "", "Linker Pattern": "NNNNNNNN", "Motif": ""}
-        )
+    if st.button("⊕", key="add", help="Add row"):
+        st.session_state.rows.append({
+            "Spacer": "", "Scaffold": "", "Template": "", "PBS": "", "Linker Pattern": "NNNNNNNN", "Motif": ""
+        })
         st.rerun()
 with col2:
-    uploaded_file = st.file_uploader("⬆️", type="csv", key="import_csv", help="Import CSV", label_visibility="collapsed")
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
+    file = st.file_uploader("", type="csv", label_visibility="collapsed")
+    if file:
+        df = pd.read_csv(file)
         st.session_state.rows = df.to_dict("records")
         st.rerun()
 st.markdown("</div>", unsafe_allow_html=True)
 
-# ================== 输入表格（复刻官网） ==================
-st.markdown("<div class='table-wrapper'>", unsafe_allow_html=True)
-# 表头
-st.markdown("""
-<div class="table-header">
-    <div>Spacer</div>
-    <div>Scaffold</div>
-    <div>Template</div>
-    <div>PBS</div>
-    <div>Linker Pattern</div>
-    <div>Motif</div>
-</div>
-""", unsafe_allow_html=True)
-
-# 表行
-updated_rows = []
+# 输入区域（官网同款布局）
+new_rows = []
 for i, row in enumerate(st.session_state.rows):
-    cols = st.columns([1, 1.5, 1.5, 1, 1, 1.5])
-    updated_row = {}
-    updated_row["Spacer"] = cols[0].text_input(f"spacer_{i}", value=row["Spacer"], label_visibility="collapsed")
-    updated_row["Scaffold"] = cols[1].text_input(f"scaffold_{i}", value=row["Scaffold"], label_visibility="collapsed")
-    updated_row["Template"] = cols[2].text_input(f"template_{i}", value=row["Template"], label_visibility="collapsed")
-    updated_row["PBS"] = cols[3].text_input(f"pbs_{i}", value=row["PBS"], label_visibility="collapsed")
-    updated_row["Linker Pattern"] = cols[4].text_input(f"linker_{i}", value=row["Linker Pattern"], label_visibility="collapsed")
-    updated_row["Motif"] = cols[5].text_input(f"motif_{i}", value=row["Motif"], label_visibility="collapsed")
-    updated_rows.append(updated_row)
-st.session_state.rows = updated_rows
+    c1, c2, c3, c4, c5, c6 = st.columns([1, 1.5, 1.5, 1, 1, 1.5])
+    new_rows.append({
+        "Spacer": c1.text_input("", row["Spacer"], key=f"s{i}", label_visibility="collapsed"),
+        "Scaffold": c2.text_input("", row["Scaffold"], key=f"sc{i}", label_visibility="collapsed"),
+        "Template": c3.text_input("", row["Template"], key=f"t{i}", label_visibility="collapsed"),
+        "PBS": c4.text_input("", row["PBS"], key=f"p{i}", label_visibility="collapsed"),
+        "Linker Pattern": c5.text_input("", row["Linker Pattern"], key=f"lp{i}", label_visibility="collapsed"),
+        "Motif": c6.text_input("", row["Motif"], key=f"m{i}", label_visibility="collapsed"),
+    })
+st.session_state.rows = new_rows
+
 st.markdown("</div>", unsafe_allow_html=True)
 
-# ================== START按钮（复刻官网） ==================
-st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
-if st.button("START"):
-    df_input = pd.DataFrame(st.session_state.rows)
-    if df_input.isnull().values.any() or (df_input == "").values.any():
-        st.error("❌ Please fill in all fields!")
+# ==============================================
+# START 按钮（官网同款）
+# ==============================================
+if st.button("START", use_container_width=False, type="primary"):
+    inputs = pd.DataFrame(st.session_state.rows)
+    if inputs.isna().any().any() or (inputs == "").any().any():
+        st.error("Please fill all fields.")
         st.stop()
 
-    with st.spinner("🔬 Calculating..."):
-        try:
-            results = []
-            for _, row in df_input.iterrows():
-                result = pegLIT(
-                    seq_spacer=row["Spacer"],
-                    seq_scaffold=row["Scaffold"],
-                    seq_template=row["Template"],
-                    seq_pbs=row["PBS"],
-                    seq_motif=row["Motif"],
-                    linker_pattern=row["Linker Pattern"]
-                )
-                results.append(result)
-
-            final_result = pd.concat(results, ignore_index=True)
-            st.success("✅ Calculation complete!")
-            st.dataframe(final_result, use_container_width=True)
-
-            csv = final_result.to_csv(index=False)
-            st.download_button(
-                label="📥 Download Results",
-                data=csv,
-                file_name="peglit_result.csv",
-                mime="text/csv"
+    with st.spinner("Running..."):
+        results = []
+        for _, r in inputs.iterrows():
+            res = pegLIT(
+                seq_spacer=r["Spacer"],
+                seq_scaffold=r["Scaffold"],
+                seq_template=r["Template"],
+                seq_pbs=r["PBS"],
+                seq_motif=r["Motif"],
+                linker_pattern=r["Linker Pattern"]
             )
-        except Exception as e:
-            st.error(f"❌ Error: {str(e)}")
-            st.exception(e)
-st.markdown("</div>", unsafe_allow_html=True)
+            results.append(res)
+
+        final = pd.concat(results, ignore_index=True)
+        st.success("Done!")
+        st.dataframe(final, use_container_width=True)
+
+        st.download_button("Download CSV", final.to_csv(index=False), "peglit_results.csv")
