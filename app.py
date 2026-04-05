@@ -1,35 +1,30 @@
 import streamlit as st
 st.set_page_config(page_title="pegLIT", layout="wide")
-# 强制清除所有缓存，彻底杜绝缓存问题
+# 强制清除缓存
 st.cache_data.clear()
 st.cache_resource.clear()
 
 import pandas as pd
 import RNA
 import peglit_min
-import random
-import time
 
-# ====================== 1. 初始化（增强健壮性 + 状态锁） ======================
+# ====================== 1. 初始化（增强健壮性） ======================
 DEFAULT_SEQ = {
-    "spacer": "",
+    "spacer": "ACATCGAGATGGAGAAGCGG",
     "scaffold": "GTTTCAGAGCTATGCTGGAAACAGCATAGCAAGTTGAAATAAGGCTAGTCCGTTATCAACTTGAAAAAGTGGCACCGAGTCGGTGC",
-    "template": "",
-    "pbs": "",
+    "template": "ATCATCGTCAGCTGCGGCtGCAGCGGATGCGAAGGGGTCgGCgttGGCGCCcGCGCCAGACGCTGGCTGGTCAGCGAAacgAAACTCGGTGCCGAACCCcctAGACTGCTGCAGAGTCTGtGCGAAGGCCTGGTACTTGCGGATGTCGGCGTCcgaCACACTCCGGCGTGCGTACTTCATactCTCCTCGAAGTGcGCCGCCTTGATCTCAGCAATgTCATCAACCTCGTCCTCCTCCATcGCTTCAGGGTTGTCCTTCCTaCG",
+    "pbs": "CTTCTCCATC",
     "linker": "NNNNNNNN",
-    "motif": ""
+    "motif": "TTGACGCGGTTCTATCTAGTTACGCGTTAAACCAACTAGAAA"
 }
 
 if "rows" not in st.session_state:
     st.session_state.rows = [DEFAULT_SEQ.copy()]
 
-# 🎯 核心状态锁：控制只有手动点击START才计算
-if "run_calculation" not in st.session_state:
-    st.session_state.run_calculation = False
-
 # ====================== 2. 全局样式 ======================
 st.markdown("""
 <style>
+/* 全局重置 */
 * {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     box-sizing: border-box;
@@ -39,6 +34,8 @@ st.markdown("""
 body {
     background-color: #ffffff;
 }
+
+/* 标题 */
 h1 {
     text-align: center;
     font-size: 3rem;
@@ -49,10 +46,12 @@ h1 {
 .subtitle {
     text-align: center;
     font-size: 1.1rem;
-    color: #1e40af;
+    color: #1e40af; /* 深蓝 */
     margin-bottom: 2rem;
     line-height: 1.6;
 }
+
+/* 表格卡片 */
 .table-card {
     max-width: 1200px;
     margin: 0 auto 1rem;
@@ -62,6 +61,8 @@ h1 {
     background: white;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
+
+/* 表头 */
 .table-header {
     display: grid;
     grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
@@ -77,6 +78,8 @@ h1 {
     text-align: left;
     line-height: 1.5;
 }
+
+/* 输入行 */
 .table-input-row {
     display: grid;
     grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
@@ -84,6 +87,8 @@ h1 {
     border-bottom: 1px solid #e5e7eb;
     align-items: center;
 }
+
+/* 输入框样式（绑定初始值+Linker只读） */
 .table-input-row input {
     width: 100%;
     border: none !important;
@@ -95,10 +100,12 @@ h1 {
 }
 .table-input-row input:disabled {
     background: #f3f4f6 !important;
-    color: #1e40af !important;
+    color: #1e40af !important; /* 深蓝 */
     cursor: not-allowed !important;
     opacity: 1 !important;
 }
+
+/* 按钮行（对齐+可点击） */
 .action-row {
     display: flex;
     align-items: center;
@@ -106,6 +113,81 @@ h1 {
     padding: 12px 16px;
     height: 48px;
 }
+
+/* 加号按钮 */
+.add-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    border: 1px solid #d1d5db;
+    background: white;
+    font-size: 20px;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.add-btn:hover {
+    border-color: #3b82f6;
+    color: #3b82f6;
+    background: #f3f4f6;
+}
+
+/* 上传按钮（直接用文件框做按钮，100%可点击） */
+div[data-testid="stFileUploader"] {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    border: 1px solid #d1d5db;
+    background: white;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+div[data-testid="stFileUploader"]:hover {
+    border-color: #3b82f6;
+    background: #f3f4f6;
+}
+div[data-testid="stFileUploader"] > div {
+    display: none !important;
+}
+div[data-testid="stFileUploader"]::after {
+    content: "⬆️";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    color: #374151;
+    pointer-events: none;
+}
+div[data-testid="stFileUploader"]::before {
+    content: "Import CSV";
+    position: absolute;
+    bottom: 120%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: white;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease-in-out;
+    z-index: 999;
+    pointer-events: none;
+}
+div[data-testid="stFileUploader"]:hover::before {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* START按钮（蓝色） */
 .stButton>button[kind="primary"] {
     background-color: #2563eb;
     color: white !important;
@@ -116,7 +198,10 @@ h1 {
 }
 .stButton>button[kind="primary"]:hover {
     background-color: #1d4ed8;
+    color: white !important;
 }
+
+/* 隐藏默认元素 */
 #MainMenu, footer, header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
@@ -131,6 +216,7 @@ Automatically identify non-interfering nucleotide linkers between a pegRNA and 3
 
 # ====================== 4. 表格渲染 ======================
 st.markdown("<div class='table-card'>", unsafe_allow_html=True)
+
 st.markdown("""
 <div class="table-header">
     <div>Spacer</div>
@@ -145,85 +231,105 @@ st.markdown("""
 for idx, row in enumerate(st.session_state.rows):
     st.markdown("<div class='table-input-row'>", unsafe_allow_html=True)
     cols = st.columns([1, 1.5, 1.5, 1, 1, 1.5])
-    cols[0].text_input(label=f"spacer_{idx}", value=row["spacer"], label_visibility="collapsed", key=f"spacer_{idx}")
-    cols[1].text_input(label=f"scaffold_{idx}", value=row["scaffold"], label_visibility="collapsed", key=f"scaffold_{idx}")
-    cols[2].text_input(label=f"template_{idx}", value=row["template"], label_visibility="collapsed", key=f"template_{idx}")
-    cols[3].text_input(label=f"pbs_{idx}", value=row["pbs"], label_visibility="collapsed", key=f"pbs_{idx}")
-    cols[4].text_input(label=f"linker_{idx}", value=row["linker"], label_visibility="collapsed", disabled=True, key=f"linker_{idx}")
-    cols[5].text_input(label=f"motif_{idx}", value=row["motif"], label_visibility="collapsed", key=f"motif_{idx}")
+    
+    cols[0].text_input(
+        label=f"spacer_{idx}",
+        value=row["spacer"],
+        label_visibility="collapsed",
+        key=f"spacer_{idx}"
+    )
+    cols[1].text_input(
+        label=f"scaffold_{idx}",
+        value=row["scaffold"],
+        label_visibility="collapsed",
+        key=f"scaffold_{idx}"
+    )
+    cols[2].text_input(
+        label=f"template_{idx}",
+        value=row["template"],
+        label_visibility="collapsed",
+        key=f"template_{idx}"
+    )
+    cols[3].text_input(
+        label=f"pbs_{idx}",
+        value=row["pbs"],
+        label_visibility="collapsed",
+        key=f"pbs_{idx}"
+    )
+    cols[4].text_input(
+        label=f"linker_{idx}",
+        value=row["linker"],
+        label_visibility="collapsed",
+        disabled=False,
+        key=f"linker_{idx}"
+    )
+    cols[5].text_input(
+        label=f"motif_{idx}",
+        value=row["motif"],
+        label_visibility="collapsed",
+        key=f"motif_{idx}"
+    )
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ====================== 5. 操作按钮 ======================
+# ====================== 5. 操作按钮行 ======================
 st.markdown("<div class='action-row'>", unsafe_allow_html=True)
-if st.button("⊕", key="add_row"):
+
+if st.button("⊕", key="add_row", help="Add new row"):
     st.session_state.rows.append(DEFAULT_SEQ.copy())
     st.rerun()
 
+# 上传按钮 + 修复CSV导入逻辑
 uploaded_file = st.file_uploader("Upload CSV", type="csv", label_visibility="collapsed", key="csv_upload")
 if uploaded_file is not None:
     try:
         df = pd.read_csv(uploaded_file)
-        df.columns = df.columns.str.lower()
+        # 强制对齐列名（忽略大小写+补全缺失列）
+        df.columns = df.columns.str.lower()  # 统一列名为小写
         required_cols = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
-        for c in required_cols:
-            if c not in df.columns:
-                df[c] = DEFAULT_SEQ[c]
+        # 补全缺失的列，用默认值填充
+        for col in required_cols:
+            if col not in df.columns:
+                df[col] = DEFAULT_SEQ[col]
+        # 只保留需要的列，避免多余列干扰
         df = df[required_cols]
-        for i, (_, r) in enumerate(df.iterrows()):
-            d = r.to_dict()
+        
+        # 导入数据：不足的行覆盖，多余的行新增
+        for i, (_, row) in enumerate(df.iterrows()):
+            row_dict = row.to_dict()
             if i < len(st.session_state.rows):
-                st.session_state.rows[i] = d
+                st.session_state.rows[i] = row_dict
             else:
-                st.session_state.rows.append(d)
-        st.success("✅ CSV imported")
+                st.session_state.rows.append(row_dict)
+        st.success("✅ CSV imported successfully!")
         st.rerun()
     except Exception as e:
-        st.error(f"Import failed: {e}")
+        st.error(f"❌ CSV import failed: {str(e)}")
+
 st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ====================== 6. ✅ 100% 修复版 START 按钮 ======================
+# ====================== 6. START按钮（核心修复：兼容所有返回格式） ======================
 st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
-
-# 点击按钮：仅设置状态，不计算
 if st.button("START", type="primary"):
-    # 1. 先清空所有旧结果，彻底杜绝秒显
-    for i in range(len(st.session_state.rows)):
-        st.session_state.rows[i]["linker"] = "NNNNNNNN"
-    # 2. 设置计算状态为True
-    st.session_state.run_calculation = True
-    # 3. 强制刷新页面，确保旧结果消失
-    st.rerun()
-
-# 只有状态为True时，才执行真正的计算
-if st.session_state.run_calculation:
-    with st.spinner("🔄 Running pegLIT... Please wait (this may take 10-30 seconds)"):
+    with st.spinner("🔄 Running... Please wait"):
         try:
-            # 强制等待，确保页面加载完成，避免缓存
-            time.sleep(1)
-            
             for i, r in enumerate(st.session_state.rows):
-                # 🔧 严格序列预处理：只保留ATCG，大写，去空格，和官网完全一致
-                def clean_seq(s):
-                    return "".join([c.upper() for c in s.strip() if c.upper() in "ATCG"])
-
-                spacer = clean_seq(r.get("spacer", ""))
-                scaffold = clean_seq(r.get("scaffold", ""))
-                template = clean_seq(r.get("template", ""))
-                pbs = clean_seq(r.get("pbs", ""))
-                motif = clean_seq(r.get("motif", ""))
-                linker_pattern = "NNNNNNNN"
-
-                st.write(f"Calculating Row {i+1}...")
-
-                # 🎯 核心：100% 对齐官网参数，不做任何修改
-                # 官网源码默认参数完全一致，不手动传seed，用默认的2020
+                # 关键修复：每个键都做兜底，避免缺失
+                spacer = r.get("spacer", DEFAULT_SEQ["spacer"]).upper().strip()
+                scaffold = r.get("scaffold", DEFAULT_SEQ["scaffold"]).upper().strip()
+                template = r.get("template", DEFAULT_SEQ["template"]).upper().strip()
+                pbs = r.get("pbs", DEFAULT_SEQ["pbs"]) .upper().strip() # 重点：pbs键兜底
+                motif = r.get("motif", DEFAULT_SEQ["motif"]).upper().strip()
+                linker = r.get("linker", DEFAULT_SEQ["linker"]).upper().strip()
+                
+                # 调用工具
+                st.write(f"正在计算 Row {i+1}...")
                 result = peglit_min.pegLIT(
                     seq_spacer=spacer,
                     seq_scaffold=scaffold,
                     seq_template=template,
                     seq_pbs=pbs,
                     seq_motif=motif,
-                    linker_pattern=linker_pattern,
+                    linker_pattern=linker,
                     ac_thresh=0.5,
                     u_thresh=3,
                     n_thresh=3,
@@ -233,41 +339,39 @@ if st.session_state.run_calculation:
                     num_steps=250,
                     temp_init=0.15,
                     temp_decay=0.95,
-                    bottleneck=1
+                    bottleneck=1,
+                    seed=2020,
+                    sequences_to_avoid=None
                 )
-
-                st.write(f"Raw algorithm result: {result}")
-
-                # 🔧 结果解析：完全复刻官网逻辑
-                new_linker = "NNNNNNNN"
-                if isinstance(result, list) and len(result) > 0:
-                    # 官网取top1最优结果
-                    if isinstance(result[0], dict):
-                        new_linker = result[0].get("linker", "NNNNNNNN")
-                    else:
-                        new_linker = result[0]
-                elif isinstance(result, str):
+                st.write(f"算法返回的原始结果: {result}")
+                # ========== 核心修复：兼容字符串/列表/字典所有返回格式 ==========
+                new_linker = DEFAULT_SEQ["linker"]  # 默认值
+                if isinstance(result, str):
+                    # 情况1：算法直接返回linker字符串（如"ATCGATCG"）
                     new_linker = result
+                elif isinstance(result, list) and len(result) > 0:
+                    # 情况2：返回列表 → 兼容列表内是字典/字符串
+                    if isinstance(result[0], dict):
+                        new_linker = result[0].get("linker", DEFAULT_SEQ["linker"])
+                    else:
+                        # 列表内是字符串（如["ATCGATCG"]）
+                        new_linker = result[0]
                 elif isinstance(result, dict):
-                    new_linker = result.get("linker", "NNNNNNNN")
-
-                # 更新结果
+                    # 情况3：返回字典
+                    new_linker = result.get("linker", DEFAULT_SEQ["linker"])
+                # 情况4：其他格式（None/空）→ 保留默认值
+                
+                # 更新linker并提示
                 st.session_state.rows[i]["linker"] = new_linker
-
-                if new_linker == "NNNNNNNN":
-                    st.warning(f"Row {i+1}: No valid linker result")
+                if new_linker == DEFAULT_SEQ["linker"]:
+                    st.warning(f"Row {i+1}: No valid linker result, keeping default (NNNNNNNN).")
                 else:
-                    st.success(f"Row {i+1}: Final linker → {new_linker}")
-
-            # 计算完成，重置状态锁
-            st.session_state.run_calculation = False
+                    st.success(f"Row {i+1}: Linker updated to {new_linker}")
+            
             st.success("✅ Calculation completed!")
-            st.rerun()
-
+            st.rerun()  # 强制刷新界面显示新结果
         except Exception as e:
-            st.error(f"❌ Calculation error: {str(e)}")
-            # 出错也重置状态
-            st.session_state.run_calculation = False
-            st.rerun()
+            st.error(f"❌ Error: {str(e)}")
+            st.exception(e)
 
 st.markdown("</div>", unsafe_allow_html=True)
