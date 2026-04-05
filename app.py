@@ -21,7 +21,7 @@ DEFAULT_SEQ = {
 if "rows" not in st.session_state:
     st.session_state.rows = [DEFAULT_SEQ.copy()]
 
-# ====================== 🎯 新增：最近3次结果存储 ======================
+# ====================== 🎯 新增：控制不自动计算（关键） ======================
 if "recent_results" not in st.session_state:
     st.session_state.recent_results = []
 
@@ -45,7 +45,7 @@ h1 {
     font-size: 3rem;
     font-weight: 700;
     margin: 2rem 0 0.5rem !important;
-    color: #1f2337;
+    color: #1f2937;
 }
 .subtitle {
     text-align: center;
@@ -174,7 +174,7 @@ div[data-testid="stFileUploader"]::before {
     bottom: 120%;
     left: 50%;
     transform: translateX(-50%);
-    background: #1f2337;
+    background: #1f2937;
     color: white;
     padding: 6px 10px;
     border-radius: 6px;
@@ -205,7 +205,6 @@ div[data-testid="stFileUploader"]:hover::before {
     color: white !important;
 }
 
-/* 🎯 新增结果展示样式 */
 .result-panel {
     max-width: 1200px;
     margin: 2rem auto;
@@ -324,26 +323,23 @@ if uploaded_file is not None:
 
 st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ====================== 6. ✅ 修复版 START 按钮 ======================
+# ====================== 6. ✅ 完全修复版 START 按钮 ======================
 st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
 if st.button("START", type="primary"):
-    # 🎯 第一步：先清空所有旧结果（关键修复）
-    for i in range(len(st.session_state.rows)):
-        st.session_state.rows[i]["linker"] = "NNNNNNNN"
-    st.rerun()
-
-# 真正的计算逻辑（清空后才运行）
-if st.session_state.rows[0]["linker"] == "NNNNNNNN":
     with st.spinner("🔄 Running... Please wait"):
         try:
             current_results = []
 
+            # 先清空旧结果
+            for i in range(len(st.session_state.rows)):
+                st.session_state.rows[i]["linker"] = "NNNNNNNN"
+
             for i, r in enumerate(st.session_state.rows):
-                spacer = r.get("spacer", DEFAULT_SEQ["spacer"]).upper().strip()
-                scaffold = r.get("scaffold", DEFAULT_SEQ["scaffold"]).upper().strip()
-                template = r.get("template", DEFAULT_SEQ["template"]).upper().strip()
-                pbs = r.get("pbs", DEFAULT_SEQ["pbs"]).upper().strip()
-                motif = r.get("motif", DEFAULT_SEQ["motif"]).upper().strip()
+                spacer = r.get("spacer", "").upper().strip()
+                scaffold = r.get("scaffold", "").upper().strip()
+                template = r.get("template", "").upper().strip()
+                pbs = r.get("pbs", "").upper().strip()
+                motif = r.get("motif", "").upper().strip()
                 linker = "NNNNNNNN"
                 
                 st.write(f"Calculating Row {i+1}...")
@@ -367,6 +363,7 @@ if st.session_state.rows[0]["linker"] == "NNNNNNNN":
                     seed=2020,
                     sequences_to_avoid=None
                 )
+                st.write(f"Result: {result}")
 
                 new_linker = "NNNNNNNN"
                 if isinstance(result, str):
@@ -383,28 +380,26 @@ if st.session_state.rows[0]["linker"] == "NNNNNNNN":
                 current_results.append(f"Row {i+1} → {new_linker}")
 
                 if new_linker == "NNNNNNNN":
-                    st.warning(f"Row {i+1}: No valid linker result")
+                    st.warning(f"Row {i+1}: No valid linker")
                 else:
-                    st.success(f"Row {i+1}: Updated → {new_linker}")
+                    st.success(f"Row {i+1}: → {new_linker}")
 
             # 保存最近3次
             st.session_state.recent_results.append("\n".join(current_results))
             if len(st.session_state.recent_results) > 3:
                 st.session_state.recent_results.pop(0)
 
-            st.success("✅ Calculation completed!")
             st.rerun()
 
         except Exception as e:
-            st.error(f"❌ Error: {str(e)}")
-            st.exception(e)
+            st.error(f"Error: {e}")
 
 st.markdown("</div>", unsafe_allow_html=True)
 
 # ====================== 🎯 显示最近3次结果 ======================
 if st.session_state.recent_results:
     st.markdown("<div class='result-panel'>", unsafe_allow_html=True)
-    st.subheader("📌 Recent 3 Calculation Results")
+    st.subheader("📌 Recent 3 Results")
     for idx, res in enumerate(reversed(st.session_state.recent_results)):
         res_html = res.replace("\n", "<br>")
         st.markdown(f"""
