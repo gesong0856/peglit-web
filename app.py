@@ -281,7 +281,7 @@ for idx, row in enumerate(st.session_state.rows):
         label=f"linker_{idx}",
         value=row["linker"],
         label_visibility="collapsed",
-        disabled=Ture,
+        disabled=True,
         key=f"linker_{idx}"
     )
     cols[5].text_input(
