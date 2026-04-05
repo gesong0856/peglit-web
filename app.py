@@ -21,6 +21,10 @@ DEFAULT_SEQ = {
 if "rows" not in st.session_state:
     st.session_state.rows = [DEFAULT_SEQ.copy()]
 
+# 🎯 关键修复：防止自动计算的状态锁
+if "start_clicked" not in st.session_state:
+    st.session_state.start_clicked = False
+
 # ====================== 2. 全局样式 ======================
 st.markdown("""
 <style>
@@ -260,7 +264,7 @@ for idx, row in enumerate(st.session_state.rows):
         label=f"linker_{idx}",
         value=row["linker"],
         label_visibility="collapsed",
-        disabled=False,
+        disabled=True,  # 🔒 设为只读，和官网一致
         key=f"linker_{idx}"
     )
     cols[5].text_input(
@@ -307,22 +311,32 @@ if uploaded_file is not None:
 
 st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ====================== 6. START按钮（核心修复：兼容所有返回格式） ======================
+# ====================== 6. ✅ 100% 对齐官网的START按钮 ======================
 st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
+
+# 第一步：点击按钮，只标记状态，不计算
 if st.button("START", type="primary"):
+    # 清空旧结果，避免秒显上一次
+    for i in range(len(st.session_state.rows)):
+        st.session_state.rows[i]["linker"] = "NNNNNNNN"
+    st.session_state.start_clicked = True
+    st.rerun()
+
+# 第二步：只有标记为True，才运行计算
+if st.session_state.start_clicked:
     with st.spinner("🔄 Running... Please wait"):
         try:
             for i, r in enumerate(st.session_state.rows):
-                # 关键修复：每个键都做兜底，避免缺失
-                spacer = r.get("spacer", DEFAULT_SEQ["spacer"]).upper().strip()
-                scaffold = r.get("scaffold", DEFAULT_SEQ["scaffold"]).upper().strip()
-                template = r.get("template", DEFAULT_SEQ["template"]).upper().strip()
-                pbs = r.get("pbs", DEFAULT_SEQ["pbs"]) .upper().strip() # 重点：pbs键兜底
-                motif = r.get("motif", DEFAULT_SEQ["motif"]).upper().strip()
-                linker = r.get("linker", DEFAULT_SEQ["linker"]).upper().strip()
-                
-                # 调用工具
-                st.write(f"正在计算 Row {i+1}...")
+                # 序列预处理：和官网完全一致（大写+去空格）
+                spacer = r.get("spacer", "").upper().strip()
+                scaffold = r.get("scaffold", "").upper().strip()
+                template = r.get("template", "").upper().strip()
+                pbs = r.get("pbs", "").upper().strip()
+                motif = r.get("motif", "").upper().strip()
+                linker = "NNNNNNNN"
+
+                # 🎯 关键：完全用官网的默认参数，不手动传seed！
+                # 官网源码默认seed=2020，这里不传，就用默认值，100%对齐
                 result = peglit_min.pegLIT(
                     seq_spacer=spacer,
                     seq_scaffold=scaffold,
@@ -339,39 +353,37 @@ if st.button("START", type="primary"):
                     num_steps=250,
                     temp_init=0.15,
                     temp_decay=0.95,
-                    bottleneck=1,
-                    seed=2020,
-                    sequences_to_avoid=None
+                    bottleneck=1
+                    # 不手动传seed，用官网默认的2020
                 )
-                st.write(f"算法返回的原始结果: {result}")
-                # ========== 核心修复：兼容字符串/列表/字典所有返回格式 ==========
-                new_linker = DEFAULT_SEQ["linker"]  # 默认值
+
+                # 结果解析：和官网完全一致
+                new_linker = "NNNNNNNN"
                 if isinstance(result, str):
-                    # 情况1：算法直接返回linker字符串（如"ATCGATCG"）
                     new_linker = result
                 elif isinstance(result, list) and len(result) > 0:
-                    # 情况2：返回列表 → 兼容列表内是字典/字符串
                     if isinstance(result[0], dict):
-                        new_linker = result[0].get("linker", DEFAULT_SEQ["linker"])
+                        new_linker = result[0].get("linker", "NNNNNNNN")
                     else:
-                        # 列表内是字符串（如["ATCGATCG"]）
                         new_linker = result[0]
                 elif isinstance(result, dict):
-                    # 情况3：返回字典
-                    new_linker = result.get("linker", DEFAULT_SEQ["linker"])
-                # 情况4：其他格式（None/空）→ 保留默认值
-                
-                # 更新linker并提示
+                    new_linker = result.get("linker", "NNNNNNNN")
+
+                # 更新结果
                 st.session_state.rows[i]["linker"] = new_linker
-                if new_linker == DEFAULT_SEQ["linker"]:
+                if new_linker == "NNNNNNNN":
                     st.warning(f"Row {i+1}: No valid linker result, keeping default (NNNNNNNN).")
                 else:
                     st.success(f"Row {i+1}: Linker updated to {new_linker}")
-            
+
+            # 计算完成，重置状态锁
+            st.session_state.start_clicked = False
             st.success("✅ Calculation completed!")
-            st.rerun()  # 强制刷新界面显示新结果
+            st.rerun()
+
         except Exception as e:
             st.error(f"❌ Error: {str(e)}")
-            st.exception(e)
+            st.session_state.start_clicked = False
+            st.rerun()
 
 st.markdown("</div>", unsafe_allow_html=True)
