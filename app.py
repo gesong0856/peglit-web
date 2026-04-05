@@ -400,10 +400,12 @@ if st.session_state.recent_results:
     st.markdown("<div class='result-panel'>", unsafe_allow_html=True)
     st.subheader("📌 Recent 3 Calculation Results")
     for idx, res in enumerate(reversed(st.session_state.recent_results)):
+        # 修复：先把换行符替换成HTML的<br>，再拼接到HTML中，避免f-string里的反斜杠
+        res_html = res.replace("\n", "<br>")
         st.markdown(f"""
         <div class='result-item'>
             <strong>Calculation {len(st.session_state.recent_results) - idx}</strong><br>
-            {res.replace('\n','<br>')}
+            {res_html}
         </div>
         """, unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
