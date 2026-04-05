@@ -8,7 +8,7 @@ import pandas as pd
 import RNA
 import peglit_min
 
-# ====================== 1. 初始化（增强健壮性 + 状态锁） ======================
+# ====================== 1. 初始化（增强健壮性） ======================
 DEFAULT_SEQ = {
     "spacer": "",
     "scaffold": "GTTTCAGAGCTATGCTGGAAACAGCATAGCAAGTTGAAATAAGGCTAGTCCGTTATCAACTTGAAAAAGTGGCACCGAGTCGGTGC",
@@ -20,14 +20,6 @@ DEFAULT_SEQ = {
 
 if "rows" not in st.session_state:
     st.session_state.rows = [DEFAULT_SEQ.copy()]
-
-# 🎯 核心修复：状态锁，控制只有手动点击才计算
-if "run_calculation" not in st.session_state:
-    st.session_state.run_calculation = False
-
-# 最近3次结果存储
-if "recent_results" not in st.session_state:
-    st.session_state.recent_results = []
 
 # ====================== 2. 全局样式 ======================
 st.markdown("""
@@ -209,22 +201,6 @@ div[data-testid="stFileUploader"]:hover::before {
     color: white !important;
 }
 
-.result-panel {
-    max-width: 1200px;
-    margin: 2rem auto;
-    padding: 1rem;
-    background: #f9fafb;
-    border-radius: 8px;
-    border: 1px solid #e5e7eb;
-}
-.result-item {
-    padding: 0.6rem 1rem;
-    background: white;
-    border-radius: 6px;
-    margin: 0.4rem 0;
-    border-left: 4px solid #2563eb;
-}
-
 /* 隐藏默认元素 */
 #MainMenu, footer, header {visibility: hidden;}
 </style>
@@ -284,7 +260,7 @@ for idx, row in enumerate(st.session_state.rows):
         label=f"linker_{idx}",
         value=row["linker"],
         label_visibility="collapsed",
-        disabled=True,
+        disabled=False,
         key=f"linker_{idx}"
     )
     cols[5].text_input(
@@ -307,13 +283,17 @@ uploaded_file = st.file_uploader("Upload CSV", type="csv", label_visibility="col
 if uploaded_file is not None:
     try:
         df = pd.read_csv(uploaded_file)
-        df.columns = df.columns.str.lower()
+        # 强制对齐列名（忽略大小写+补全缺失列）
+        df.columns = df.columns.str.lower()  # 统一列名为小写
         required_cols = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
+        # 补全缺失的列，用默认值填充
         for col in required_cols:
             if col not in df.columns:
                 df[col] = DEFAULT_SEQ[col]
+        # 只保留需要的列，避免多余列干扰
         df = df[required_cols]
         
+        # 导入数据：不足的行覆盖，多余的行新增
         for i, (_, row) in enumerate(df.iterrows()):
             row_dict = row.to_dict()
             if i < len(st.session_state.rows):
@@ -327,32 +307,22 @@ if uploaded_file is not None:
 
 st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ====================== 6. ✅ 终极修复：START按钮 + 状态锁 ======================
+# ====================== 6. START按钮（核心修复：兼容所有返回格式） ======================
 st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
-
-# 点击按钮时，仅设置状态为True，不直接计算
 if st.button("START", type="primary"):
-    st.session_state.run_calculation = True
-    # 先清空旧结果
-    for i in range(len(st.session_state.rows)):
-        st.session_state.rows[i]["linker"] = "NNNNNNNN"
-    st.rerun()
-
-# 只有状态为True时，才执行计算
-if st.session_state.run_calculation:
     with st.spinner("🔄 Running... Please wait"):
         try:
-            current_results = []
             for i, r in enumerate(st.session_state.rows):
-                # 序列标准化：转大写+去空格
-                spacer = r.get("spacer", "").upper().strip()
-                scaffold = r.get("scaffold", "").upper().strip()
-                template = r.get("template", "").upper().strip()
-                pbs = r.get("pbs", "").upper().strip()
-                motif = r.get("motif", "").upper().strip()
-                linker = "NNNNNNNN"
+                # 关键修复：每个键都做兜底，避免缺失
+                spacer = r.get("spacer", DEFAULT_SEQ["spacer"]).upper().strip()
+                scaffold = r.get("scaffold", DEFAULT_SEQ["scaffold"]).upper().strip()
+                template = r.get("template", DEFAULT_SEQ["template"]).upper().strip()
+                pbs = r.get("pbs", DEFAULT_SEQ["pbs"]) .upper().strip() # 重点：pbs键兜底
+                motif = r.get("motif", DEFAULT_SEQ["motif"]).upper().strip()
+                linker = r.get("linker", DEFAULT_SEQ["linker"]).upper().strip()
                 
-                st.write(f"Calculating Row {i+1}...")
+                # 调用工具
+                st.write(f"正在计算 Row {i+1}...")
                 result = peglit_min.pegLIT(
                     seq_spacer=spacer,
                     seq_scaffold=scaffold,
@@ -373,57 +343,35 @@ if st.session_state.run_calculation:
                     seed=2020,
                     sequences_to_avoid=None
                 )
-                st.write(f"算法返回原始结果: {result}")
-
-                # 结果解析
-                new_linker = "NNNNNNNN"
+                st.write(f"算法返回的原始结果: {result}")
+                # ========== 核心修复：兼容字符串/列表/字典所有返回格式 ==========
+                new_linker = DEFAULT_SEQ["linker"]  # 默认值
                 if isinstance(result, str):
+                    # 情况1：算法直接返回linker字符串（如"ATCGATCG"）
                     new_linker = result
                 elif isinstance(result, list) and len(result) > 0:
+                    # 情况2：返回列表 → 兼容列表内是字典/字符串
                     if isinstance(result[0], dict):
-                        new_linker = result[0].get("linker", "NNNNNNNN")
+                        new_linker = result[0].get("linker", DEFAULT_SEQ["linker"])
                     else:
+                        # 列表内是字符串（如["ATCGATCG"]）
                         new_linker = result[0]
                 elif isinstance(result, dict):
-                    new_linker = result.get("linker", "NNNNNNNN")
+                    # 情况3：返回字典
+                    new_linker = result.get("linker", DEFAULT_SEQ["linker"])
+                # 情况4：其他格式（None/空）→ 保留默认值
                 
-                # 更新结果
+                # 更新linker并提示
                 st.session_state.rows[i]["linker"] = new_linker
-                current_results.append(f"Row {i+1} → 最终Linker：{new_linker}")
-
-                if new_linker == "NNNNNNNN":
-                    st.warning(f"Row {i+1}: 无有效Linker结果，保留默认值")
+                if new_linker == DEFAULT_SEQ["linker"]:
+                    st.warning(f"Row {i+1}: No valid linker result, keeping default (NNNNNNNN).")
                 else:
-                    st.success(f"Row {i+1}: Linker已更新为 → {new_linker}")
-
-            # 保存最近3次结果
-            st.session_state.recent_results.append("\n".join(current_results))
-            if len(st.session_state.recent_results) > 3:
-                st.session_state.recent_results.pop(0)
-
-            # 计算完成后，重置状态锁，避免下次自动计算
-            st.session_state.run_calculation = False
-            st.success("✅ 计算完成！")
-            st.rerun()
-
+                    st.success(f"Row {i+1}: Linker updated to {new_linker}")
+            
+            st.success("✅ Calculation completed!")
+            st.rerun()  # 强制刷新界面显示新结果
         except Exception as e:
-            st.error(f"❌ 计算出错：{str(e)}")
-            # 出错也重置状态
-            st.session_state.run_calculation = False
-            st.rerun()
+            st.error(f"❌ Error: {str(e)}")
+            st.exception(e)
 
 st.markdown("</div>", unsafe_allow_html=True)
-
-# ====================== 7. 显示最近3次计算结果 ======================
-if st.session_state.recent_results:
-    st.markdown("<div class='result-panel'>", unsafe_allow_html=True)
-    st.subheader("📌 最近3次计算结果")
-    for idx, res in enumerate(reversed(st.session_state.recent_results)):
-        res_html = res.replace("\n", "<br>")
-        st.markdown(f"""
-        <div class='result-item'>
-            <strong>第 {len(st.session_state.recent_results)-idx} 次计算</strong><br>
-            {res_html}
-        </div>
-        """, unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
