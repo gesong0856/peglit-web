@@ -8,7 +8,7 @@ import pandas as pd
 import RNA
 import peglit_min
 
-# ====================== 1. 初始化（增强健壮性） ======================
+# ====================== 1. 初始化（增强健壮性 + 状态锁） ======================
 DEFAULT_SEQ = {
     "spacer": "",
     "scaffold": "GTTTCAGAGCTATGCTGGAAACAGCATAGCAAGTTGAAATAAGGCTAGTCCGTTATCAACTTGAAAAAGTGGCACCGAGTCGGTGC",
@@ -21,7 +21,11 @@ DEFAULT_SEQ = {
 if "rows" not in st.session_state:
     st.session_state.rows = [DEFAULT_SEQ.copy()]
 
-# ====================== 🎯 新增：控制不自动计算（关键） ======================
+# 🎯 核心修复：状态锁，控制只有手动点击才计算
+if "run_calculation" not in st.session_state:
+    st.session_state.run_calculation = False
+
+# 最近3次结果存储
 if "recent_results" not in st.session_state:
     st.session_state.recent_results = []
 
@@ -323,18 +327,24 @@ if uploaded_file is not None:
 
 st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ====================== 6. ✅ 完全修复版 START 按钮 ======================
+# ====================== 6. ✅ 终极修复：START按钮 + 状态锁 ======================
 st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
+
+# 点击按钮时，仅设置状态为True，不直接计算
 if st.button("START", type="primary"):
+    st.session_state.run_calculation = True
+    # 先清空旧结果
+    for i in range(len(st.session_state.rows)):
+        st.session_state.rows[i]["linker"] = "NNNNNNNN"
+    st.rerun()
+
+# 只有状态为True时，才执行计算
+if st.session_state.run_calculation:
     with st.spinner("🔄 Running... Please wait"):
         try:
             current_results = []
-
-            # 先清空旧结果
-            for i in range(len(st.session_state.rows)):
-                st.session_state.rows[i]["linker"] = "NNNNNNNN"
-
             for i, r in enumerate(st.session_state.rows):
+                # 序列标准化：转大写+去空格
                 spacer = r.get("spacer", "").upper().strip()
                 scaffold = r.get("scaffold", "").upper().strip()
                 template = r.get("template", "").upper().strip()
@@ -363,8 +373,9 @@ if st.button("START", type="primary"):
                     seed=2020,
                     sequences_to_avoid=None
                 )
-                st.write(f"Result: {result}")
+                st.write(f"算法返回原始结果: {result}")
 
+                # 结果解析
                 new_linker = "NNNNNNNN"
                 if isinstance(result, str):
                     new_linker = result
@@ -376,35 +387,43 @@ if st.button("START", type="primary"):
                 elif isinstance(result, dict):
                     new_linker = result.get("linker", "NNNNNNNN")
                 
+                # 更新结果
                 st.session_state.rows[i]["linker"] = new_linker
-                current_results.append(f"Row {i+1} → {new_linker}")
+                current_results.append(f"Row {i+1} → 最终Linker：{new_linker}")
 
                 if new_linker == "NNNNNNNN":
-                    st.warning(f"Row {i+1}: No valid linker")
+                    st.warning(f"Row {i+1}: 无有效Linker结果，保留默认值")
                 else:
-                    st.success(f"Row {i+1}: → {new_linker}")
+                    st.success(f"Row {i+1}: Linker已更新为 → {new_linker}")
 
-            # 保存最近3次
+            # 保存最近3次结果
             st.session_state.recent_results.append("\n".join(current_results))
             if len(st.session_state.recent_results) > 3:
                 st.session_state.recent_results.pop(0)
 
+            # 计算完成后，重置状态锁，避免下次自动计算
+            st.session_state.run_calculation = False
+            st.success("✅ 计算完成！")
             st.rerun()
 
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"❌ 计算出错：{str(e)}")
+            # 出错也重置状态
+            st.session_state.run_calculation = False
+            st.rerun()
 
 st.markdown("</div>", unsafe_allow_html=True)
 
-# ====================== 🎯 显示最近3次结果 ======================
+# ====================== 7. 显示最近3次计算结果 ======================
 if st.session_state.recent_results:
     st.markdown("<div class='result-panel'>", unsafe_allow_html=True)
-    st.subheader("📌 Recent 3 Results")
+    st.subheader("📌 最近3次计算结果")
     for idx, res in enumerate(reversed(st.session_state.recent_results)):
         res_html = res.replace("\n", "<br>")
         st.markdown(f"""
         <div class='result-item'>
-            <strong>Run {len(st.session_state.recent_results)-idx}</strong><br>{res_html}
+            <strong>第 {len(st.session_state.recent_results)-idx} 次计算</strong><br>
+            {res_html}
         </div>
         """, unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
