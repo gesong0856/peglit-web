@@ -307,71 +307,69 @@ if uploaded_file is not None:
 
 st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ====================== 6. START按钮（100%官网原版调用） ======================
+# ====================== 6. START按钮（彻底解决第二次不运行问题） ======================
 st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
+
 if st.button("START", type="primary"):
-    with st.spinner("🔄 Running... Please wait (this may take 10-30 seconds)"):
+    # --------------------------
+    # 🔧 关键修复：第二次能运行
+    # --------------------------
+    st.cache_data.clear()
+    st.cache_resource.clear()
+
+    # 重置所有 linker → 防止显示上一次结果
+    for i in range(len(st.session_state.rows)):
+        st.session_state.rows[i]["linker"] = "NNNNNNNN"
+
+    st.rerun()  # 强制刷新，保证干净环境再计算
+
+# --------------------------
+# 真正的计算放在这里
+# --------------------------
+if st.button("✅ 确认开始计算（安全模式）"):
+    with st.spinner("🔄 Running... Please wait"):
         try:
             for i, r in enumerate(st.session_state.rows):
-                # 严格序列预处理：大写+去空格+过滤非法字符
-                def clean_seq(s):
-                    return "".join([c.upper() for c in s.strip() if c.upper() in "ATCG"])
+                spacer = r.get("spacer", "").upper().strip()
+                scaffold = r.get("scaffold", "").upper().strip()
+                template = r.get("template", "").upper().strip()
+                pbs = r.get("pbs", "").upper().strip()
+                motif = r.get("motif", "").upper().strip()
+                linker = "NNNNNNNN"
 
-                spacer = clean_seq(r.get("spacer", ""))
-                scaffold = clean_seq(r.get("scaffold", ""))
-                template = clean_seq(r.get("template", ""))
-                pbs = clean_seq(r.get("pbs", ""))
-                motif = clean_seq(r.get("motif", ""))
-                # 固定Linker Pattern为NNNNNNNN，与官网完全一致
-                linker_pattern = "NNNNNNNN"
-
-                st.write(f"Calculating Row {i+1}...")
-
-                # 100%对齐官网参数，位置传参
                 result = peglit_min.pegLIT(
-                    spacer,
-                    scaffold,
-                    template,
-                    pbs,
-                    motif,
-                    linker_pattern,
-                    0.5,
-                    3,
-                    3,
-                    100,
-                    1e-2,
-                    10,
-                    250,
-                    0.15,
-                    0.95,
-                    1,
-                    2020,
-                    None
+                    seq_spacer=spacer,
+                    seq_scaffold=scaffold,
+                    seq_template=template,
+                    seq_pbs=pbs,
+                    seq_motif=motif,
+                    linker_pattern=linker,
+                    ac_thresh=0.5,
+                    u_thresh=3,
+                    n_thresh=3,
+                    topn=100,
+                    epsilon=1e-2,
+                    num_repeats=10,
+                    num_steps=250,
+                    temp_init=0.15,
+                    temp_decay=0.95,
+                    bottleneck=1,
+                    seed=2020,
+                    sequences_to_avoid=None
                 )
 
-                st.write(f"算法返回原始结果: {result}")
-
-                # 结果解析：取top1最优Linker
-                new_linker = "NNNNNNNN"
+                # 取结果
                 if isinstance(result, list) and len(result) > 0:
-                    if isinstance(result[0], dict):
-                        new_linker = result[0].get("linker", "NNNNNNNN")
-                    else:
-                        new_linker = result[0]
-                elif isinstance(result, str):
-                    new_linker = result
-
-                # 更新结果
-                st.session_state.rows[i]["linker"] = new_linker
-                if new_linker == "NNNNNNNN":
-                    st.warning(f"Row {i+1}: No valid linker result, keeping default.")
+                    new_linker = result[0]
                 else:
-                    st.success(f"Row {i+1}: Linker updated to {new_linker}")
-            
-            st.success("✅ Calculation completed (100% aligned with official web version)")
+                    new_linker = "NNNNNNNN"
+
+                st.session_state.rows[i]["linker"] = new_linker
+
+            st.success("✅ Calculation completed!")
             st.rerun()
+
         except Exception as e:
-            st.error(f"❌ Error: {str(e)}")
-            st.exception(e)
+            st.error(f"Error: {e}")
 
 st.markdown("</div>", unsafe_allow_html=True)
