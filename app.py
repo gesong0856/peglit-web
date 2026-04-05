@@ -10,18 +10,18 @@ import peglit_min
 
 # ====================== 1. 初始化（增强健壮性） ======================
 DEFAULT_SEQ = {
-    "spacer": "",
+    "spacer": "GGCCGCGTCTTCATGCTCCT",
     "scaffold": "GTTTCAGAGCTATGCTGGAAACAGCATAGCAAGTTGAAATAAGGCTAGTCCGTTATCAACTTGAAAAAGTGGCACCGAGTCGGTGC",
-    "template": "",
-    "pbs": "",
+    "template": "AGAAGATGATCACCActagagcgaccacagaccgccaAGCAGGTGATCACCGAGCTCCTcAGCAATGGCGGCaGCGAGAACGGGGAAgCGGCCGGCGACGAGCGACAGCATcGCGAGCGCCGCGCCGAGCAGCCACAGcAGGAGGGCGACGCAAGGTTCGGCGCCGCGGgTGCAGCCGGACGATGCTCCGCcGCCGgtaGTGGtGAGCAtGTGCATGAGGATGACGGCGCCGAGa",
+    "pbs": "AGCATGAAGAC",
     "linker": "NNNNNNNN",
-    "motif": ""
+    "motif": "TTGACCGGTTCTATCTAGTTACGCGTTAAACCAACTAGAAA"
 }
 
 if "rows" not in st.session_state:
     st.session_state.rows = [DEFAULT_SEQ.copy()]
 
-# ====================== 🎯 新增：仅保存最近 3 次结果 ======================
+# ====================== 🎯 新增：最近3次结果存储 ======================
 if "recent_results" not in st.session_state:
     st.session_state.recent_results = []
 
@@ -45,7 +45,7 @@ h1 {
     font-size: 3rem;
     font-weight: 700;
     margin: 2rem 0 0.5rem !important;
-    color: #1f2937;
+    color: #1f2337;
 }
 .subtitle {
     text-align: center;
@@ -174,7 +174,7 @@ div[data-testid="stFileUploader"]::before {
     bottom: 120%;
     left: 50%;
     transform: translateX(-50%);
-    background: #1f2937;
+    background: #1f2337;
     color: white;
     padding: 6px 10px;
     border-radius: 6px;
@@ -205,7 +205,7 @@ div[data-testid="stFileUploader"]:hover::before {
     color: white !important;
 }
 
-/* 🎯 新增：最近结果样式 */
+/* 🎯 新增结果展示样式 */
 .result-panel {
     max-width: 1200px;
     margin: 2rem auto;
@@ -324,12 +324,19 @@ if uploaded_file is not None:
 
 st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ====================== 6. START按钮（已增加最近3次记录） ======================
+# ====================== 6. ✅ 修复版 START 按钮 ======================
 st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
 if st.button("START", type="primary"):
+    # 🎯 第一步：先清空所有旧结果（关键修复）
+    for i in range(len(st.session_state.rows)):
+        st.session_state.rows[i]["linker"] = "NNNNNNNN"
+    st.rerun()
+
+# 真正的计算逻辑（清空后才运行）
+if st.session_state.rows[0]["linker"] == "NNNNNNNN":
     with st.spinner("🔄 Running... Please wait"):
         try:
-            current_results = []  # 本次运行的结果
+            current_results = []
 
             for i, r in enumerate(st.session_state.rows):
                 spacer = r.get("spacer", DEFAULT_SEQ["spacer"]).upper().strip()
@@ -337,9 +344,9 @@ if st.button("START", type="primary"):
                 template = r.get("template", DEFAULT_SEQ["template"]).upper().strip()
                 pbs = r.get("pbs", DEFAULT_SEQ["pbs"]).upper().strip()
                 motif = r.get("motif", DEFAULT_SEQ["motif"]).upper().strip()
-                linker = r.get("linker", DEFAULT_SEQ["linker"]).upper().strip()
+                linker = "NNNNNNNN"
                 
-                st.write(f"正在计算 Row {i+1}...")
+                st.write(f"Calculating Row {i+1}...")
                 result = peglit_min.pegLIT(
                     seq_spacer=spacer,
                     seq_scaffold=scaffold,
@@ -360,28 +367,27 @@ if st.button("START", type="primary"):
                     seed=2020,
                     sequences_to_avoid=None
                 )
-                st.write(f"算法返回原始结果: {result}")
 
-                new_linker = DEFAULT_SEQ["linker"]
+                new_linker = "NNNNNNNN"
                 if isinstance(result, str):
                     new_linker = result
                 elif isinstance(result, list) and len(result) > 0:
                     if isinstance(result[0], dict):
-                        new_linker = result[0].get("linker", DEFAULT_SEQ["linker"])
+                        new_linker = result[0].get("linker", "NNNNNNNN")
                     else:
                         new_linker = result[0]
                 elif isinstance(result, dict):
-                    new_linker = result.get("linker", DEFAULT_SEQ["linker"])
+                    new_linker = result.get("linker", "NNNNNNNN")
                 
                 st.session_state.rows[i]["linker"] = new_linker
-                current_results.append(f"Row {i+1} → 最终 Linker：{new_linker}")
+                current_results.append(f"Row {i+1} → {new_linker}")
 
-                if new_linker == DEFAULT_SEQ["linker"]:
+                if new_linker == "NNNNNNNN":
                     st.warning(f"Row {i+1}: No valid linker result")
                 else:
-                    st.success(f"Row {i+1}: Linker updated to → {new_linker}")
+                    st.success(f"Row {i+1}: Updated → {new_linker}")
 
-            # ====================== 🎯 核心：只保留最近 3 次 ======================
+            # 保存最近3次
             st.session_state.recent_results.append("\n".join(current_results))
             if len(st.session_state.recent_results) > 3:
                 st.session_state.recent_results.pop(0)
@@ -395,17 +401,15 @@ if st.button("START", type="primary"):
 
 st.markdown("</div>", unsafe_allow_html=True)
 
-# ====================== 🎯 7. 显示最近 3 次计算结果（展示区） ======================
+# ====================== 🎯 显示最近3次结果 ======================
 if st.session_state.recent_results:
     st.markdown("<div class='result-panel'>", unsafe_allow_html=True)
     st.subheader("📌 Recent 3 Calculation Results")
     for idx, res in enumerate(reversed(st.session_state.recent_results)):
-        # 修复：先把换行符替换成HTML的<br>，再拼接到HTML中，避免f-string里的反斜杠
         res_html = res.replace("\n", "<br>")
         st.markdown(f"""
         <div class='result-item'>
-            <strong>Calculation {len(st.session_state.recent_results) - idx}</strong><br>
-            {res_html}
+            <strong>Run {len(st.session_state.recent_results)-idx}</strong><br>{res_html}
         </div>
         """, unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
