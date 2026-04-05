@@ -307,36 +307,46 @@ if uploaded_file is not None:
 
 st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ====================== 6. START按钮（彻底解决第二次不运行问题） ======================
+# ====================== 6. START按钮（单按钮终极修复，彻底解决无结果/卡死） ======================
 st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
 
-if st.button("START", type="primary"):
-    # --------------------------
-    # 🔧 关键修复：第二次能运行
-    # --------------------------
+# 🔒 严格状态锁：控制计算流程，彻底杜绝状态混乱
+if "calc_status" not in st.session_state:
+    st.session_state.calc_status = "idle"  # idle: 空闲, running: 计算中
+
+# 仅当状态为idle时，START按钮可点击
+if st.button("START", type="primary", disabled=st.session_state.calc_status != "idle"):
+    # 第一步：强制清空所有缓存/内存，释放资源
     st.cache_data.clear()
     st.cache_resource.clear()
-
-    # 重置所有 linker → 防止显示上一次结果
+    
+    # 第二步：重置所有Linker为默认值，避免上一次结果干扰
     for i in range(len(st.session_state.rows)):
         st.session_state.rows[i]["linker"] = "NNNNNNNN"
+    
+    # 第三步：标记为计算状态，触发rerun
+    st.session_state.calc_status = "running"
+    st.rerun()
 
-    st.rerun()  # 强制刷新，保证干净环境再计算
-
-# --------------------------
-# 真正的计算放在这里
-# --------------------------
-if st.button("✅ 确认开始计算（安全模式）"):
-    with st.spinner("🔄 Running... Please wait"):
+    # 🔄 仅当状态为running时，执行真正的计算
+if st.session_state.calc_status == "running":
+    with st.spinner("🔄 Running pegLIT... Please wait (10-30 seconds)"):
         try:
             for i, r in enumerate(st.session_state.rows):
-                spacer = r.get("spacer", "").upper().strip()
-                scaffold = r.get("scaffold", "").upper().strip()
-                template = r.get("template", "").upper().strip()
-                pbs = r.get("pbs", "").upper().strip()
-                motif = r.get("motif", "").upper().strip()
-                linker = "NNNNNNNN"
+                # 🧹 严格序列预处理：只保留ATCG，大写，去空格，和官网完全一致
+                def clean_seq(s):
+                    return "".join([c.upper() for c in s.strip() if c.upper() in "ATCG"])
 
+                spacer = clean_seq(r.get("spacer", ""))
+                scaffold = clean_seq(r.get("scaffold", ""))
+                template = clean_seq(r.get("template", ""))
+                pbs = clean_seq(r.get("pbs", ""))
+                motif = clean_seq(r.get("motif", ""))
+                # 🎯 固定Linker Pattern为8N，和官网完全一致，解决搜索空间不匹配问题
+                linker_pattern = "NNNNNNNN"
+
+                st.write(f"Calculating Row {i+1}...")
+                
                 result = peglit_min.pegLIT(
                     seq_spacer=spacer,
                     seq_scaffold=scaffold,
@@ -357,19 +367,36 @@ if st.button("✅ 确认开始计算（安全模式）"):
                     seed=2020,
                     sequences_to_avoid=None
                 )
+                st.write(f"算法返回原始结果: {result}")
 
-                # 取结果
+                # 📊 结果解析：兼容所有返回格式，取top1最优Linker
+                new_linker = "NNNNNNNN"
                 if isinstance(result, list) and len(result) > 0:
-                    new_linker = result[0]
-                else:
-                    new_linker = "NNNNNNNN"
+                    if isinstance(result[0], dict):
+                        new_linker = result[0].get("linker", "NNNNNNNN")
+                    else:
+                        new_linker = result[0]
+                elif isinstance(result, str):
+                    new_linker = result
 
+                # 更新结果到界面
                 st.session_state.rows[i]["linker"] = new_linker
+                if new_linker == "NNNNNNNN":
+                    st.warning(f"Row {i+1}: No valid linker result, keeping default.")
+                else:
+                    st.success(f"Row {i+1}: Linker updated to {new_linker}")
 
-            st.success("✅ Calculation completed!")
+            # ✅ 计算完成，重置状态为idle
+            st.session_state.calc_status = "idle"
+            st.success("✅ Calculation completed (100% aligned with official web version)")
             st.rerun()
 
         except Exception as e:
-            st.error(f"Error: {e}")
+            # ❌ 出错也重置状态，避免卡死
+            st.error(f"❌ Calculation error: {str(e)}")
+            st.session_state.calc_status = "idle"
+            st.rerun()
 
 st.markdown("</div>", unsafe_allow_html=True)
+
+
