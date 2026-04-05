@@ -1,4 +1,8 @@
 import streamlit as st
+# ========== 新增：强制使用国内CDN，解决晚上加载慢 ==========
+import os
+os.environ["STREAMLIT_STATIC_BASE_URL"] = "https://unpkg.zhimg.com/@streamlit/"
+
 st.set_page_config(page_title="pegLIT", layout="wide")
 # 强制清除缓存
 st.cache_data.clear()
@@ -20,6 +24,9 @@ DEFAULT_SEQ = {
 
 if "rows" not in st.session_state:
     st.session_state.rows = [DEFAULT_SEQ.copy()]
+# ========== 新增：初始化结果存储 ==========
+if "calculation_results" not in st.session_state:
+    st.session_state.calculation_results = []
 
 # ====================== 2. 全局样式 ======================
 st.markdown("""
@@ -201,6 +208,35 @@ div[data-testid="stFileUploader"]:hover::before {
     color: white !important;
 }
 
+/* ========== 新增：结果输出区域样式 ========== */
+.result-section {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 1.5rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #f9fafb;
+}
+.result-card {
+    margin: 1rem 0;
+    padding: 1rem;
+    border-radius: 6px;
+    background: white;
+    border-left: 4px solid #2563eb;
+}
+.result-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 1rem;
+}
+.result-subtitle {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: #1e40af;
+    margin: 0.5rem 0;
+}
+
 /* 隐藏默认元素 */
 #MainMenu, footer, header {visibility: hidden;}
 </style>
@@ -260,7 +296,7 @@ for idx, row in enumerate(st.session_state.rows):
         label=f"linker_{idx}",
         value=row["linker"],
         label_visibility="collapsed",
-        disabled=True,
+        disabled=False,
         key=f"linker_{idx}"
     )
     cols[5].text_input(
@@ -312,6 +348,9 @@ st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
 if st.button("START", type="primary"):
     with st.spinner("🔄 Running... Please wait"):
         try:
+            # ========== 新增：清空历史结果 ==========
+            st.session_state.calculation_results = []
+            
             for i, r in enumerate(st.session_state.rows):
                 # 关键修复：每个键都做兜底，避免缺失
                 spacer = r.get("spacer", DEFAULT_SEQ["spacer"]).upper().strip()
@@ -363,6 +402,21 @@ if st.button("START", type="primary"):
                 
                 # 更新linker并提示
                 st.session_state.rows[i]["linker"] = new_linker
+                
+                # ========== 新增：存储每行的详细结果 ==========
+                row_result = {
+                    "row_num": i+1,
+                    "spacer": spacer,
+                    "scaffold": scaffold[:50] + "..." if len(scaffold) > 50 else scaffold,  # 截断长序列
+                    "template": template[:50] + "..." if len(template) > 50 else template,
+                    "pbs": pbs,
+                    "motif": motif[:50] + "..." if len(motif) > 50 else motif,
+                    "original_linker": linker,
+                    "calculated_linker": new_linker,
+                    "status": "Success" if new_linker != DEFAULT_SEQ["linker"] else "No valid result"
+                }
+                st.session_state.calculation_results.append(row_result)
+                
                 if new_linker == DEFAULT_SEQ["linker"]:
                     st.warning(f"Row {i+1}: No valid linker result, keeping default (NNNNNNNN).")
                 else:
@@ -375,3 +429,39 @@ if st.button("START", type="primary"):
             st.exception(e)
 
 st.markdown("</div>", unsafe_allow_html=True)
+
+# ====================== 7. 新增：结果输出区域 ======================
+if st.session_state.calculation_results:
+    st.markdown("<div class='result-section'>", unsafe_allow_html=True)
+    st.markdown("<div class='result-title'>📊 Calculation Results Summary</div>", unsafe_allow_html=True)
+    
+    # 1. 逐行显示详细结果卡片
+    for res in st.session_state.calculation_results:
+        st.markdown(f"""
+        <div class='result-card'>
+            <div class='result-subtitle'>Row {res['row_num']} - {res['status']}</div>
+            <p><strong>Spacer:</strong> {res['spacer']}</p>
+            <p><strong>PBS:</strong> {res['pbs']}</p>
+            <p><strong>Original Linker:</strong> {res['original_linker']}</p>
+            <p><strong>Calculated Linker:</strong> <span style='color:#1e40af; font-weight:600;'>{res['calculated_linker']}</span></p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # 2. 显示汇总表格（更易对比）
+    st.markdown("<div class='result-subtitle'>📋 Results Table</div>", unsafe_allow_html=True)
+    result_df = pd.DataFrame(st.session_state.calculation_results)
+    # 只显示关键列
+    display_df = result_df[["row_num", "spacer", "pbs", "calculated_linker", "status"]]
+    st.dataframe(display_df, use_container_width=True)
+    
+    # 3. 可选：添加结果下载按钮
+    csv = result_df.to_csv(index=False)
+    st.download_button(
+        label="💾 Download Results (CSV)",
+        data=csv,
+        file_name="peglit_calculation_results.csv",
+        mime="text/csv",
+        help="Download all calculation results as CSV file"
+    )
+    
+    st.markdown("</div>", unsafe_allow_html=True)
