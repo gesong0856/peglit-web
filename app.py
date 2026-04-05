@@ -1,8 +1,4 @@
 import streamlit as st
-# ========== 新增：强制使用国内CDN，解决晚上加载慢 ==========
-import os
-os.environ["STREAMLIT_STATIC_BASE_URL"] = "https://unpkg.zhimg.com/@streamlit/"
-
 st.set_page_config(page_title="pegLIT", layout="wide")
 # 强制清除缓存
 st.cache_data.clear()
