@@ -10,12 +10,12 @@ import peglit_min
 
 # ====================== 1. 初始化（增强健壮性） ======================
 DEFAULT_SEQ = {
-    "spacer": "ACATCGAGATGGAGAAGCGG",
+    "spacer": "",
     "scaffold": "GTTTCAGAGCTATGCTGGAAACAGCATAGCAAGTTGAAATAAGGCTAGTCCGTTATCAACTTGAAAAAGTGGCACCGAGTCGGTGC",
-    "template": "ATCATCGTCAGCTGCGGCtGCAGCGGATGCGAAGGGGTCgGCgttGGCGCCcGCGCCAGACGCTGGCTGGTCAGCGAAacgAAACTCGGTGCCGAACCCcctAGACTGCTGCAGAGTCTGtGCGAAGGCCTGGTACTTGCGGATGTCGGCGTCcgaCACACTCCGGCGTGCGTACTTCATactCTCCTCGAAGTGcGCCGCCTTGATCTCAGCAATgTCATCAACCTCGTCCTCCTCCATcGCTTCAGGGTTGTCCTTCCTaCG",
-    "pbs": "CTTCTCCATC",
+    "template": "",
+    "pbs": "",
     "linker": "NNNNNNNN",
-    "motif": "TTGACGCGGTTCTATCTAGTTACGCGTTAAACCAACTAGAAA"
+    "motif": ""
 }
 
 if "rows" not in st.session_state:
@@ -307,46 +307,22 @@ if uploaded_file is not None:
 
 st.markdown("</div></div>", unsafe_allow_html=True)
 
-# ====================== 6. START按钮（单按钮终极修复，彻底解决无结果/卡死） ======================
+# ====================== 6. START按钮（核心修复：兼容所有返回格式） ======================
 st.markdown("<div class='start-btn-container'>", unsafe_allow_html=True)
-
-# 🔒 严格状态锁：控制计算流程，彻底杜绝状态混乱
-if "calc_status" not in st.session_state:
-    st.session_state.calc_status = "idle"  # idle: 空闲, running: 计算中
-
-# 仅当状态为idle时，START按钮可点击
-if st.button("START", type="primary", disabled=st.session_state.calc_status != "idle"):
-    # 第一步：强制清空所有缓存/内存，释放资源
-    st.cache_data.clear()
-    st.cache_resource.clear()
-    
-    # 第二步：重置所有Linker为默认值，避免上一次结果干扰
-    for i in range(len(st.session_state.rows)):
-        st.session_state.rows[i]["linker"] = "NNNNNNNN"
-    
-    # 第三步：标记为计算状态，触发rerun
-    st.session_state.calc_status = "running"
-    st.rerun()
-
-    # 🔄 仅当状态为running时，执行真正的计算
-if st.session_state.calc_status == "running":
-    with st.spinner("🔄 Running pegLIT... Please wait (10-30 seconds)"):
+if st.button("START", type="primary"):
+    with st.spinner("🔄 Running... Please wait"):
         try:
             for i, r in enumerate(st.session_state.rows):
-                # 🧹 严格序列预处理：只保留ATCG，大写，去空格，和官网完全一致
-                def clean_seq(s):
-                    return "".join([c.upper() for c in s.strip() if c.upper() in "ATCG"])
-
-                spacer = clean_seq(r.get("spacer", ""))
-                scaffold = clean_seq(r.get("scaffold", ""))
-                template = clean_seq(r.get("template", ""))
-                pbs = clean_seq(r.get("pbs", ""))
-                motif = clean_seq(r.get("motif", ""))
-                # 🎯 固定Linker Pattern为8N，和官网完全一致，解决搜索空间不匹配问题
-                linker_pattern = "NNNNNNNN"
-
-                st.write(f"Calculating Row {i+1}...")
+                # 关键修复：每个键都做兜底，避免缺失
+                spacer = r.get("spacer", DEFAULT_SEQ["spacer"]).upper().strip()
+                scaffold = r.get("scaffold", DEFAULT_SEQ["scaffold"]).upper().strip()
+                template = r.get("template", DEFAULT_SEQ["template"]).upper().strip()
+                pbs = r.get("pbs", DEFAULT_SEQ["pbs"]) .upper().strip() # 重点：pbs键兜底
+                motif = r.get("motif", DEFAULT_SEQ["motif"]).upper().strip()
+                linker = r.get("linker", DEFAULT_SEQ["linker"]).upper().strip()
                 
+                # 调用工具
+                st.write(f"正在计算 Row {i+1}...")
                 result = peglit_min.pegLIT(
                     seq_spacer=spacer,
                     seq_scaffold=scaffold,
@@ -367,36 +343,35 @@ if st.session_state.calc_status == "running":
                     seed=2020,
                     sequences_to_avoid=None
                 )
-                st.write(f"算法返回原始结果: {result}")
-
-                # 📊 结果解析：兼容所有返回格式，取top1最优Linker
-                new_linker = "NNNNNNNN"
-                if isinstance(result, list) and len(result) > 0:
-                    if isinstance(result[0], dict):
-                        new_linker = result[0].get("linker", "NNNNNNNN")
-                    else:
-                        new_linker = result[0]
-                elif isinstance(result, str):
+                st.write(f"算法返回的原始结果: {result}")
+                # ========== 核心修复：兼容字符串/列表/字典所有返回格式 ==========
+                new_linker = DEFAULT_SEQ["linker"]  # 默认值
+                if isinstance(result, str):
+                    # 情况1：算法直接返回linker字符串（如"ATCGATCG"）
                     new_linker = result
-
-                # 更新结果到界面
+                elif isinstance(result, list) and len(result) > 0:
+                    # 情况2：返回列表 → 兼容列表内是字典/字符串
+                    if isinstance(result[0], dict):
+                        new_linker = result[0].get("linker", DEFAULT_SEQ["linker"])
+                    else:
+                        # 列表内是字符串（如["ATCGATCG"]）
+                        new_linker = result[0]
+                elif isinstance(result, dict):
+                    # 情况3：返回字典
+                    new_linker = result.get("linker", DEFAULT_SEQ["linker"])
+                # 情况4：其他格式（None/空）→ 保留默认值
+                
+                # 更新linker并提示
                 st.session_state.rows[i]["linker"] = new_linker
-                if new_linker == "NNNNNNNN":
-                    st.warning(f"Row {i+1}: No valid linker result, keeping default.")
+                if new_linker == DEFAULT_SEQ["linker"]:
+                    st.warning(f"Row {i+1}: No valid linker result, keeping default (NNNNNNNN).")
                 else:
                     st.success(f"Row {i+1}: Linker updated to {new_linker}")
-
-            # ✅ 计算完成，重置状态为idle
-            st.session_state.calc_status = "idle"
-            st.success("✅ Calculation completed (100% aligned with official web version)")
-            st.rerun()
-
+            
+            st.success("✅ Calculation completed!")
+            st.rerun()  # 强制刷新界面显示新结果
         except Exception as e:
-            # ❌ 出错也重置状态，避免卡死
-            st.error(f"❌ Calculation error: {str(e)}")
-            st.session_state.calc_status = "idle"
-            st.rerun()
+            st.error(f"❌ Error: {str(e)}")
+            st.exception(e)
 
 st.markdown("</div>", unsafe_allow_html=True)
-
-
