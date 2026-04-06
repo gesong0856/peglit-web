@@ -9,9 +9,8 @@ import RNA
 import peglit_min
 import random
 import numpy as np
-import uuid  # 用于生成唯一seed，避免linker重复
 
-# ====================== 1. 初始化（对齐官网8个N默认值） ======================
+# ====================== 1. 初始化（仅保留初始1行，对齐官网8个N默认值） ======================
 DEFAULT_SEQ = {
     "spacer": "",
     "scaffold": "GTTTCAGAGCTATGCTGGAAACAGCATAGCAAGTTGAAATAAGGCTAGTCCGTTATCAACTTGAAAAAGTGGCACCGAGTCGGTGC",
@@ -23,11 +22,8 @@ DEFAULT_SEQ = {
 }
 
 if "rows" not in st.session_state:
-    # 初始默认3行，满足多序列输入需求
-    st.session_state.rows = [DEFAULT_SEQ.copy() for _ in range(1)]
-    # 为每行生成唯一seed（核心：避免linker重复）
-    for i in range(3):
-        st.session_state.rows[i]["unique_seed"] = 2020 + i * 100
+    # 初始仅1行，满足需求
+    st.session_state.rows = [DEFAULT_SEQ.copy()]
 
 # ====================== 2. 全局样式（完全保留你的原始样式，无任何修改） ======================
 st.markdown("""
@@ -222,7 +218,7 @@ Automatically identify non-interfering nucleotide linkers between a pegRNA and 3
 </div>
 """, unsafe_allow_html=True)
 
-# ====================== 4. 表格渲染（保留布局，支持多行列独立计算） ======================
+# ====================== 4. 表格渲染（仅初始1行，保留布局） ======================
 st.markdown("<div class='table-card'>", unsafe_allow_html=True)
 
 st.markdown("""
