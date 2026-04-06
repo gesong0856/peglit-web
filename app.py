@@ -2,456 +2,603 @@ import streamlit as st
 import pandas as pd
 import RNA
 import peglit_min
-import random
-import numpy as np
+import json
+import base64
+from io import BytesIO
 
-# ====================== 1. 基础配置 & 初始化（修复session_state问题） ======================
-st.set_page_config(page_title="pegLIT", layout="wide")
+# ====================== 基础配置 ======================
+st.set_page_config(
+    page_title="pegLIT - Official",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# 强制清除缓存（放在最顶部，确保生效）
+# 强制清除缓存
 st.cache_data.clear()
 st.cache_resource.clear()
 
-# 定义默认行数据
+# ====================== 全局常量 ======================
 DEFAULT_SEQ = {
     "spacer": "",
     "scaffold": "GTTTCAGAGCTATGCTGGAAACAGCATAGCAAGTTGAAATAAGGCTAGTCCGTTATCAACTTGAAAAAGTGGCACCGAGTCGGTGC",
     "template": "",
     "pbs": "",
     "linker": "NNNNNNNN",
-    "motif": "",
-    "unique_seed": 2020
+    "motif": ""
 }
 
-# 安全初始化session_state（避免未定义导致的错误）
+DEFAULT_PARAMS = {
+    "ac_thresh": 0.5,
+    "u_thresh": 3,
+    "n_thresh": 3,
+    "topn": 100,
+    "epsilon": 1e-2,
+    "num_repeats": 10,
+    "num_steps": 250,
+    "temp_init": 0.15,
+    "temp_decay": 0.95,
+    "bottleneck": 1,
+    "seed": 2020
+}
+
+# ====================== 会话状态初始化 ======================
 if "rows" not in st.session_state:
     st.session_state.rows = [DEFAULT_SEQ.copy()]
-if "run_calculation" not in st.session_state:
-    st.session_state.run_calculation = False
+if "params" not in st.session_state:
+    st.session_state.params = DEFAULT_PARAMS.copy()
+if "results" not in st.session_state:
+    st.session_state.results = {}
+if "calculated" not in st.session_state:
+    st.session_state.calculated = False
 
-# ====================== 2. 全局样式（完全保留） ======================
+# ====================== 全局样式（复刻官网） ======================
 st.markdown("""
 <style>
+/* 全局重置 */
 * {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    font-family: 'Segoe UI', Roboto, Arial, sans-serif;
     box-sizing: border-box;
-    margin: 0;
-    padding: 0;
 }
-body {background-color: #ffffff;}
-h1 {
+
+/* 隐藏默认元素 */
+#MainMenu, footer, header {visibility: hidden;}
+
+/* 主容器 */
+.main-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* 标题区域 */
+.title-section {
     text-align: center;
-    font-size: 3rem;
-    font-weight: 700;
-    margin: 2rem 0 0.5rem !important;
-    color: #1f2937;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e5e7eb;
 }
-.subtitle {
-    text-align: center;
-    font-size: 1.1rem;
-    color: #1e40af;
-    margin-bottom: 2rem;
-    line-height: 1.6;
+.title-section h1 {
+    font-size: 3.5rem;
+    font-weight: 800;
+    color: #111827;
+    margin-bottom: 10px;
 }
-.table-card {
-    max-width: 1200px;
-    margin: 0 auto 1rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    overflow: hidden;
-    background: white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-.table-header {
-    display: grid;
-    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
-    gap: 0;
-    background: #fff;
-    padding: 1.25rem 0;
-    font-weight: 500;
+.title-section p {
     font-size: 1.2rem;
-    border-bottom: 1px solid #e5e7eb;
-}
-.table-header > div {
-    padding: 0 1rem;
-    text-align: left;
-    line-height: 1.5;
-}
-.table-input-row {
-    display: grid;
-    grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
-    gap: 0;
-    border-bottom: 1px solid #e5e7eb;
-    align-items: center;
-}
-.table-input-row input {
-    width: 100%;
-    border: none !important;
-    outline: none !important;
-    font-size: 1rem;
-    padding: 0.75rem 1rem;
-    background: transparent !important;
-    line-height: 1.5;
-}
-.table-input-row input:disabled {
-    background: #f3f4f6 !important;
-    color: #1e40af !important;
-    cursor: not-allowed !important;
-    opacity: 1 !important;
-}
-.action-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    height: 48px;
-}
-.add-btn {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    border: 1px solid #d1d5db;
-    background: white;
-    font-size: 20px;
-    color: #374151;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.add-btn:hover {
-    border-color: #3b82f6;
-    color: #3b82f6;
-    background: #f3f4f6;
-}
-div[data-testid="stFileUploader"] {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    border: 1px solid #d1d5db;
-    background: white;
-    overflow: hidden;
-    position: relative;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-div[data-testid="stFileUploader"]:hover {
-    border-color: #3b82f6;
-    background: #f3f4f6;
-}
-div[data-testid="stFileUploader"] > div {display: none !important;}
-div[data-testid="stFileUploader"]::after {
-    content: "⬆️";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 24px;
-    color: #374151;
-    pointer-events: none;
-}
-div[data-testid="stFileUploader"]::before {
-    content: "Import CSV";
-    position: absolute;
-    bottom: 120%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #1f2937;
-    color: white;
-    padding: 6px 10px;
-    border-radius: 6px;
-    font-size: 12px;
-    white-space: nowrap;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.2s ease-in-out;
-    z-index: 999;
-    pointer-events: none;
-}
-div[data-testid="stFileUploader"]:hover::before {
-    opacity: 1;
-    visibility: visible;
-}
-.stButton>button[kind="primary"] {
-    background-color: #2563eb;
-    color: white !important;
-    border: none !important;
-    border-radius: 12px !important;
-    padding: 0.8rem 2.5rem !important;
-    font-size: 1.2rem !important;
-    display: block;
+    color: #4b5563;
+    max-width: 800px;
     margin: 0 auto;
 }
-.stButton>button[kind="primary"]:hover {
-    background-color: #1d4ed8;
-    color: white !important;
+
+/* 输入卡片 */
+.input-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
-#MainMenu, footer, header {visibility: hidden;}
+
+/* 表格样式 */
+.input-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+}
+.input-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1f2937;
+    border-bottom: 2px solid #e5e7eb;
+}
+.input-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+.input-table input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 1rem;
+    outline: none;
+}
+.input-table input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+.input-table input:disabled {
+    background-color: #f9fafb;
+    color: #4b5563;
+    cursor: not-allowed;
+}
+
+/* 按钮样式 */
+.btn-primary {
+    background-color: #2563eb !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 12px 24px !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: background-color 0.2s !important;
+}
+.btn-primary:hover {
+    background-color: #1d4ed8 !important;
+}
+.btn-secondary {
+    background-color: #f3f4f6 !important;
+    color: #1f2937 !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 8px !important;
+    padding: 8px 16px !important;
+    font-size: 0.9rem !important;
+    cursor: pointer !important;
+}
+.btn-secondary:hover {
+    background-color: #e5e7eb !important;
+}
+
+/* 结果卡片 */
+.result-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 24px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.result-card h3 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+/* 二级结构展示 */
+.rna-structure {
+    font-family: monospace;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    padding: 16px;
+    background-color: #f9fafb;
+    border-radius: 8px;
+    white-space: pre-wrap;
+    margin: 16px 0;
+}
+
+/* 侧边栏样式 */
+.sidebar-param {
+    margin-bottom: 16px;
+}
+.sidebar-param label {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #1f2937;
+    margin-bottom: 4px;
+    display: block;
+}
+.sidebar-param input {
+    width: 100%;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ====================== 3. 页面标题 ======================
-st.markdown("<h1>pegLIT</h1>", unsafe_allow_html=True)
-st.markdown("""
-<div class="subtitle">
-Automatically identify non-interfering nucleotide linkers between a pegRNA and 3' motif.
-</div>
-""", unsafe_allow_html=True)
-
-# ====================== 4. 表格渲染 ======================
-st.markdown("<div class='table-card'>", unsafe_allow_html=True)
-st.markdown("""
-<div class="table-header">
-    <div>Spacer</div>
-    <div>Scaffold</div>
-    <div>Template</div>
-    <div>PBS</div>
-    <div>Linker Pattern</div>
-    <div>Motif</div>
-</div>
-""", unsafe_allow_html=True)
-
-# 渲染输入行（增加key的唯一性，避免Streamlit交互冲突）
-for idx, row in enumerate(st.session_state.rows):
-    st.markdown(f"<div class='table-input-row' id='row_{idx}'>", unsafe_allow_html=True)
-    cols = st.columns([1, 1.5, 1.5, 1, 1, 1.5])
+# ====================== 侧边栏参数配置（复刻官网） ======================
+with st.sidebar:
+    st.markdown("<h2 style='font-size:1.8rem; font-weight:700; margin-bottom:20px;'>Parameters</h2>", unsafe_allow_html=True)
     
-    cols[0].text_input(
+    # 能量阈值参数
+    st.markdown("<div class='sidebar-param'>", unsafe_allow_html=True)
+    st.session_state.params["ac_thresh"] = st.number_input(
+        "AC Threshold",
+        min_value=0.0,
+        max_value=1.0,
+        value=DEFAULT_PARAMS["ac_thresh"],
+        step=0.05,
+        help="Acceptable threshold for AC content"
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("<div class='sidebar-param'>", unsafe_allow_html=True)
+    st.session_state.params["u_thresh"] = st.number_input(
+        "U Threshold",
+        min_value=0,
+        max_value=10,
+        value=DEFAULT_PARAMS["u_thresh"],
+        step=1,
+        help="Maximum allowed consecutive U's"
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("<div class='sidebar-param'>", unsafe_allow_html=True)
+    st.session_state.params["n_thresh"] = st.number_input(
+        "N Threshold",
+        min_value=0,
+        max_value=10,
+        value=DEFAULT_PARAMS["n_thresh"],
+        step=1,
+        help="Maximum allowed consecutive N's"
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # 模拟退火参数
+    st.markdown("<h3 style='font-size:1.2rem; font-weight:600; margin:20px 0 10px;'>Simulated Annealing</h3>", unsafe_allow_html=True)
+    
+    st.markdown("<div class='sidebar-param'>", unsafe_allow_html=True)
+    st.session_state.params["topn"] = st.number_input(
+        "Top N",
+        min_value=10,
+        max_value=500,
+        value=DEFAULT_PARAMS["topn"],
+        step=10,
+        help="Number of top candidates to keep"
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("<div class='sidebar-param'>", unsafe_allow_html=True)
+    st.session_state.params["temp_init"] = st.number_input(
+        "Initial Temperature",
+        min_value=0.05,
+        max_value=0.5,
+        value=DEFAULT_PARAMS["temp_init"],
+        step=0.01,
+        help="Initial temperature for annealing"
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("<div class='sidebar-param'>", unsafe_allow_html=True)
+    st.session_state.params["temp_decay"] = st.number_input(
+        "Temperature Decay",
+        min_value=0.85,
+        max_value=0.99,
+        value=DEFAULT_PARAMS["temp_decay"],
+        step=0.01,
+        help="Temperature decay rate per step"
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("<div class='sidebar-param'>", unsafe_allow_html=True)
+    st.session_state.params["num_steps"] = st.number_input(
+        "Number of Steps",
+        min_value=50,
+        max_value=1000,
+        value=DEFAULT_PARAMS["num_steps"],
+        step=50,
+        help="Number of annealing steps"
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("<div class='sidebar-param'>", unsafe_allow_html=True)
+    st.session_state.params["num_repeats"] = st.number_input(
+        "Number of Repeats",
+        min_value=1,
+        max_value=50,
+        value=DEFAULT_PARAMS["num_repeats"],
+        step=1,
+        help="Number of annealing repeats"
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # 其他参数
+    st.markdown("<div class='sidebar-param'>", unsafe_allow_html=True)
+    st.session_state.params["seed"] = st.number_input(
+        "Random Seed",
+        min_value=1,
+        max_value=9999,
+        value=DEFAULT_PARAMS["seed"],
+        step=1,
+        help="Random seed for reproducibility"
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# ====================== 主界面 ======================
+st.markdown("<div class='main-container'>", unsafe_allow_html=True)
+
+# 标题区域
+st.markdown("""
+<div class="title-section">
+    <h1>pegLIT</h1>
+    <p>Automatically identify non-interfering nucleotide linkers between a pegRNA and 3' motif</p>
+</div>
+""", unsafe_allow_html=True)
+
+# 输入区域
+st.markdown("<div class='input-card'>", unsafe_allow_html=True)
+st.markdown("<h3 style='font-size:1.5rem; font-weight:600; margin-bottom:16px;'>Sequence Input</h3>", unsafe_allow_html=True)
+
+# 序列输入表格
+col_add, col_import, col_export = st.columns([1, 1, 1])
+with col_add:
+    if st.button("➕ Add New Row", key="add_row", class_="btn-secondary"):
+        st.session_state.rows.append(DEFAULT_SEQ.copy())
+        st.rerun()
+
+with col_import:
+    uploaded_file = st.file_uploader(
+        "Import CSV",
+        type="csv",
+        label_visibility="collapsed",
+        key="csv_upload"
+    )
+    if uploaded_file is not None:
+        try:
+            df = pd.read_csv(uploaded_file)
+            df.columns = df.columns.str.lower()
+            required_cols = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
+            for col in required_cols:
+                if col not in df.columns:
+                    df[col] = DEFAULT_SEQ[col]
+            df = df[required_cols]
+            
+            st.session_state.rows = []
+            for _, row in df.iterrows():
+                st.session_state.rows.append(row.to_dict())
+            st.success("✅ CSV imported successfully!")
+            st.rerun()
+        except Exception as e:
+            st.error(f"❌ CSV import failed: {str(e)}")
+
+with col_export:
+    def export_to_csv():
+        df = pd.DataFrame(st.session_state.rows)
+        buffer = BytesIO()
+        df.to_csv(buffer, index=False)
+        buffer.seek(0)
+        return base64.b64encode(buffer.getvalue()).decode()
+    
+    if st.session_state.rows:
+        csv_base64 = export_to_csv()
+        st.download_button(
+            label="📤 Export CSV",
+            data=base64.b64decode(csv_base64),
+            file_name="peglit_sequences.csv",
+            mime="text/csv",
+            class_="btn-secondary"
+        )
+
+# 渲染输入表格
+st.markdown("<table class='input-table'>", unsafe_allow_html=True)
+st.markdown("""
+<thead>
+    <tr>
+        <th>Spacer</th>
+        <th>Scaffold</th>
+        <th>Template</th>
+        <th>PBS</th>
+        <th>Linker Pattern</th>
+        <th>Motif</th>
+    </tr>
+</thead>
+<tbody>
+""", unsafe_allow_html=True)
+
+for idx, row in enumerate(st.session_state.rows):
+    st.markdown("<tr>", unsafe_allow_html=True)
+    
+    # Spacer列
+    st.markdown("<td>", unsafe_allow_html=True)
+    st.text_input(
         label=f"spacer_{idx}",
         value=row["spacer"],
         label_visibility="collapsed",
-        key=f"spacer_{idx}_input"  # 增加_input后缀，避免key冲突
+        key=f"spacer_{idx}"
     )
-    cols[1].text_input(
+    st.markdown("</td>", unsafe_allow_html=True)
+    
+    # Scaffold列
+    st.markdown("<td>", unsafe_allow_html=True)
+    st.text_input(
         label=f"scaffold_{idx}",
         value=row["scaffold"],
         label_visibility="collapsed",
-        key=f"scaffold_{idx}_input"
+        key=f"scaffold_{idx}"
     )
-    cols[2].text_input(
+    st.markdown("</td>", unsafe_allow_html=True)
+    
+    # Template列
+    st.markdown("<td>", unsafe_allow_html=True)
+    st.text_input(
         label=f"template_{idx}",
         value=row["template"],
         label_visibility="collapsed",
-        key=f"template_{idx}_input"
+        key=f"template_{idx}"
     )
-    cols[3].text_input(
+    st.markdown("</td>", unsafe_allow_html=True)
+    
+    # PBS列
+    st.markdown("<td>", unsafe_allow_html=True)
+    st.text_input(
         label=f"pbs_{idx}",
         value=row["pbs"],
         label_visibility="collapsed",
-        key=f"pbs_{idx}_input"
+        key=f"pbs_{idx}"
     )
-    linker_disabled = len(str(row["linker"]).strip()) > 0 and row["linker"] != "NNNNNNNN"
-    cols[4].text_input(
+    st.markdown("</td>", unsafe_allow_html=True)
+    
+    # Linker列
+    st.markdown("<td>", unsafe_allow_html=True)
+    st.text_input(
         label=f"linker_{idx}",
         value=row["linker"],
         label_visibility="collapsed",
-        disabled=linker_disabled,
-        key=f"linker_{idx}_input"
+        disabled=st.session_state.calculated,  # 计算后锁定
+        key=f"linker_{idx}"
     )
-    cols[5].text_input(
+    st.markdown("</td>", unsafe_allow_html=True)
+    
+    # Motif列
+    st.markdown("<td>", unsafe_allow_html=True)
+    st.text_input(
         label=f"motif_{idx}",
         value=row["motif"],
         label_visibility="collapsed",
-        key=f"motif_{idx}_input"
+        key=f"motif_{idx}"
     )
+    st.markdown("</td>", unsafe_allow_html=True)
+    
+    st.markdown("</tr>", unsafe_allow_html=True)
+
+st.markdown("</tbody></table>", unsafe_allow_html=True)
+
+# 计算按钮
+st.markdown("<div style='text-align:center; margin:24px 0;'>", unsafe_allow_html=True)
+if st.button("START CALCULATION", key="start_calc", class_="btn-primary"):
+    with st.spinner("🔄 Running pegLIT calculation... Please wait"):
+        st.session_state.results = {}
+        st.session_state.calculated = True
+        
+        try:
+            for i, row in enumerate(st.session_state.rows):
+                # 获取输入序列（兜底+格式化）
+                spacer = row.get("spacer", "").upper().strip()
+                scaffold = row.get("scaffold", DEFAULT_SEQ["scaffold"]).upper().strip()
+                template = row.get("template", "").upper().strip()
+                pbs = row.get("pbs", "").upper().strip()
+                motif = row.get("motif", "").upper().strip()
+                linker_pattern = row.get("linker", DEFAULT_SEQ["linker"]).upper().strip()
+                
+                # 空值校验
+                if not all([spacer, scaffold, template, pbs, motif]):
+                    st.session_state.results[i] = {
+                        "status": "error",
+                        "message": "Missing required sequence (Spacer/Template/PBS/Motif)"
+                    }
+                    continue
+                
+                # 调用核心计算逻辑（复用第一个参考的peglit_min）
+                result = peglit_min.pegLIT(
+                    seq_spacer=spacer,
+                    seq_scaffold=scaffold,
+                    seq_template=template,
+                    seq_pbs=pbs,
+                    seq_motif=motif,
+                    linker_pattern=linker_pattern,
+                    **st.session_state.params
+                )
+                
+                # 解析结果（兼容官网输出格式）
+                row_result = {"status": "success", "data": {}}
+                
+                # 1. 提取最优linker（对齐官网优先级）
+                best_linker = DEFAULT_SEQ["linker"]
+                if isinstance(result, dict):
+                    best_linker = result.get("best_linker", result.get("linker", best_linker))
+                    row_result["data"]["linker"] = best_linker
+                    
+                    # 2. 提取二级结构（RNAfold预测）
+                    full_seq = f"{scaffold}{best_linker}{motif}"
+                    (ss, mfe) = RNA.fold(full_seq)
+                    row_result["data"]["secondary_structure"] = ss
+                    row_result["data"]["mfe"] = mfe
+                    
+                    # 3. 提取候选列表
+                    row_result["data"]["candidates"] = result.get("candidates", [])
+                    
+                elif isinstance(result, list) and len(result) > 0:
+                    best_linker = result[0] if isinstance(result[0], str) else result[0].get("linker", best_linker)
+                    row_result["data"]["linker"] = best_linker
+                    
+                    # 补充二级结构
+                    full_seq = f"{scaffold}{best_linker}{motif}"
+                    (ss, mfe) = RNA.fold(full_seq)
+                    row_result["data"]["secondary_structure"] = ss
+                    row_result["data"]["mfe"] = mfe
+                    
+                elif isinstance(result, str):
+                    best_linker = result
+                    row_result["data"]["linker"] = best_linker
+                    
+                    # 补充二级结构
+                    full_seq = f"{scaffold}{best_linker}{motif}"
+                    (ss, mfe) = RNA.fold(full_seq)
+                    row_result["data"]["secondary_structure"] = ss
+                    row_result["data"]["mfe"] = mfe
+                
+                # 更新session state
+                st.session_state.rows[i]["linker"] = best_linker
+                st.session_state.results[i] = row_result
+            
+            st.success("✅ Calculation completed successfully!")
+            st.rerun()
+            
+        except Exception as e:
+            st.error(f"❌ Calculation failed: {str(e)}")
+            st.exception(e)
+            st.session_state.calculated = False
+
+st.markdown("</div>", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)  # 关闭input-card
+
+# 结果展示区域
+if st.session_state.calculated and st.session_state.results:
+    st.markdown("<div class='result-card'>", unsafe_allow_html=True)
+    st.markdown("<h3>Calculation Results</h3>", unsafe_allow_html=True)
+    
+    for idx, result in st.session_state.results.items():
+        st.markdown(f"<h4 style='margin:20px 0 10px;'>Row {idx+1}</h4>", unsafe_allow_html=True)
+        
+        if result["status"] == "error":
+            st.error(f"❌ {result['message']}")
+            continue
+        
+        # 核心结果展示
+        result_data = result["data"]
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            st.markdown("<strong>Optimal Linker:</strong>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:1.2rem; font-weight:600; color:#2563eb;'>{result_data['linker']}</div>", unsafe_allow_html=True)
+            
+            st.markdown("<strong>Minimum Free Energy (MFE):</strong>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:1rem;'>{result_data['mfe']:.2f} kcal/mol</div>", unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("<strong>RNA Secondary Structure:</strong>", unsafe_allow_html=True)
+            st.markdown(f"<div class='rna-structure'>{result_data['secondary_structure']}</div>", unsafe_allow_html=True)
+        
+        # 候选linker列表（如果有）
+        if "candidates" in result_data and result_data["candidates"]:
+            st.markdown("<strong>Top Candidate Linkers:</strong>", unsafe_allow_html=True)
+            candidates_df = pd.DataFrame(result_data["candidates"])
+            st.dataframe(
+                candidates_df,
+                use_container_width=True,
+                hide_index=True
+            )
+        
+        st.markdown("<hr style='margin:20px 0; border:1px solid #e5e7eb;'>", unsafe_allow_html=True)
+    
     st.markdown("</div>", unsafe_allow_html=True)
-st.markdown("</div>", unsafe_allow_html=True)
 
-# ====================== 5. 操作按钮（修复新增行逻辑） ======================
-st.markdown("<div class='action-row'>", unsafe_allow_html=True)
-if st.button("⊕ Add Row", key="add_row_btn", help="Add new row"):
-    new_row = DEFAULT_SEQ.copy()
-    new_row["unique_seed"] = max([r["unique_seed"] for r in st.session_state.rows]) + 100
-    st.session_state.rows.append(new_row)
-    st.rerun()  # 强制刷新，确保新增行立即显示
-
-# CSV导入功能（简化逻辑，避免导入错误导致按钮无响应）
-uploaded_file = st.file_uploader("Import CSV", type="csv", key="csv_uploader", label_visibility="collapsed")
-if uploaded_file is not None:
-    try:
-        df = pd.read_csv(uploaded_file)
-        df.columns = df.columns.str.lower()
-        required_cols = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
-        for col in required_cols:
-            if col not in df.columns:
-                df[col] = DEFAULT_SEQ[col]
-        st.session_state.rows = []
-        base_seed = 2020
-        for i, (_, row) in enumerate(df.iterrows()):
-            row_dict = DEFAULT_SEQ.copy()
-            row_dict["spacer"] = str(row["spacer"]).upper().strip() if pd.notna(row["spacer"]) else ""
-            row_dict["scaffold"] = str(row["scaffold"]).upper().strip() if pd.notna(row["scaffold"]) else DEFAULT_SEQ["scaffold"]
-            row_dict["template"] = str(row["template"]).upper().strip() if pd.notna(row["template"]) else ""
-            row_dict["pbs"] = str(row["pbs"]).upper().strip() if pd.notna(row["pbs"]) else ""
-            row_dict["linker"] = str(row["linker"]).upper().strip() if pd.notna(row["linker"]) else "NNNNNNNN"
-            row_dict["motif"] = str(row["motif"]).upper().strip() if pd.notna(row["motif"]) else ""
-            row_dict["unique_seed"] = base_seed + i * 100
-            st.session_state.rows.append(row_dict)
-        st.success("✅ CSV imported successfully!")
-        st.rerun()
-    except Exception as e:
-        st.error(f"❌ CSV import failed: {str(e)}")
-st.markdown("</div>", unsafe_allow_html=True)
-
-# ====================== 6. 核心工具函数（简化逻辑，减少执行错误） ======================
-def validate_nucleotide_seq(seq):
-    valid_chars = set("ATCGN")
-    seq = seq.upper().strip()
-    if not seq:
-        return True, ""
-    if set(seq) - valid_chars:
-        return False, f"Invalid chars: {set(seq) - valid_chars} (only A/T/C/G/N allowed)"
-    return True, ""
-
-def preprocess_for_peglit(spacer, scaffold, template, pbs, motif, linker_pattern, seed=2020):
-    random.seed(seed)
-    np.random.seed(seed)
-    # 标准化序列
-    spacer = spacer.upper().strip().replace("T", "U")
-    scaffold = scaffold.upper().strip().replace("T", "U")
-    template = template.upper().strip().replace("T", "U")
-    pbs = pbs.upper().strip().replace("T", "U")
-    motif = motif.upper().strip().replace("T", "U")
-    linker_pattern = linker_pattern.upper().strip().replace("T", "U") or "NNNNNNNN"
-    # 计算AC阈值
-    ac_thresh = 0.5 * len(linker_pattern)
-    return {
-        "spacer": spacer, "scaffold": scaffold, "template": template,
-        "pbs": pbs, "motif": motif, "linker_pattern": linker_pattern,
-        "ac_thresh": ac_thresh, "seed": seed
-    }
-
-# ====================== 7. START按钮（核心修复：独立触发逻辑+详细日志） ======================
-# 单独的START按钮区域，确保触发优先级
-col_start, _, _ = st.columns([1, 2, 1])
-with col_start:
-    if st.button("START", type="primary", key="start_calc_btn"):
-        # 标记开始计算，避免Streamlit重渲染导致的重复执行
-        st.session_state.run_calculation = True
-        # 立即显示加载状态
-        with st.spinner("🔄 Running calculations..."):
-            try:
-                total_rows = len(st.session_state.rows)
-                used_linkers = set()
-                success_count = 0
-
-                # 遍历每一行计算（实时更新状态，避免卡顿）
-                for i in range(total_rows):
-                    st.write(f"### Processing Row {i+1}/{total_rows}")
-                    # 读取当前行输入（从input key读取，确保获取最新值）
-                    row = st.session_state.rows[i]
-                    spacer = st.session_state[f"spacer_{i}_input"]
-                    scaffold = st.session_state[f"scaffold_{i}_input"]
-                    template = st.session_state[f"template_{i}_input"]
-                    pbs = st.session_state[f"pbs_{i}_input"]
-                    motif = st.session_state[f"motif_{i}_input"]
-                    linker_pattern = st.session_state[f"linker_{i}_input"] or "NNNNNNNN"
-                    unique_seed = row["unique_seed"]
-
-                    # 1. 校验序列合法性
-                    all_seq = spacer + scaffold + template + pbs + motif + linker_pattern
-                    is_valid, err_msg = validate_nucleotide_seq(all_seq)
-                    if not is_valid:
-                        st.error(f"Row {i+1}: ❌ {err_msg}")
-                        row["linker"] = f"NNNNNNNN_{i}"
-                        used_linkers.add(row["linker"])
-                        continue
-
-                    # 2. 校验核心序列非空
-                    if not all([spacer, scaffold, template, pbs, motif]):
-                        st.warning(f"Row {i+1}: ⚠️ Core sequences (spacer/scaffold/template/pbs/motif) cannot be empty!")
-                        row["linker"] = f"NNNNNNNN_{i}"
-                        used_linkers.add(row["linker"])
-                        continue
-
-                    # 3. 预处理
-                    preprocessed = preprocess_for_peglit(
-                        spacer, scaffold, template, pbs, motif, linker_pattern, unique_seed
-                    )
-
-                    # 4. 调用pegLIT算法（核心：增加详细异常捕获）
-                    base_linker = ""
-                    try:
-                        # 转回T传给算法（pegLIT预期DNA序列）
-                        result = peglit_min.pegLIT(
-                            seq_spacer=preprocessed["spacer"].replace("U", "T"),
-                            seq_scaffold=preprocessed["scaffold"].replace("U", "T"),
-                            seq_template=preprocessed["template"].replace("U", "T"),
-                            seq_pbs=preprocessed["pbs"].replace("U", "T"),
-                            seq_motif=preprocessed["motif"].replace("U", "T"),
-                            linker_pattern=preprocessed["linker_pattern"].replace("U", "T"),
-                            ac_thresh=preprocessed["ac_thresh"],
-                            u_thresh=3, n_thresh=3, topn=100,
-                            epsilon=1e-2, num_repeats=10, num_steps=250,
-                            temp_init=0.15, temp_decay=0.95, bottleneck=1,
-                            seed=preprocessed["seed"], sequences_to_avoid=None
-                        )
-                        # 解析结果
-                        if isinstance(result, str):
-                            base_linker = result.strip().replace("U", "T")
-                        elif isinstance(result, list) and len(result) > 0:
-                            base_linker = result[0].get("linker", "").strip().replace("U", "T") if isinstance(result[0], dict) else str(result[0]).strip().replace("U", "T")
-                        elif isinstance(result, dict):
-                            base_linker = result.get("linker", "").strip().replace("U", "T")
-                    except ValueError as e:
-                        if "not enough values to unpack" in str(e):
-                            st.error(f"Row {i+1}: ❌ No valid linker (filter too strict)")
-                            base_linker = f"NNNNNNNN_{i}"
-                        else:
-                            st.error(f"Row {i+1}: ❌ Value Error - {str(e)}")
-                            base_linker = f"NNNNNNNN_{i}"
-                    except Exception as e:
-                        st.error(f"Row {i+1}: ❌ Calculation Error - {str(e)}")
-                        base_linker = f"NNNNNNNN_{i}"
-
-                    # 5. 确保linker唯一
-                    final_linker = base_linker
-                    retry = 0
-                    while final_linker in used_linkers and retry < 3:
-                        retry += 1
-                        new_seed = unique_seed + retry * 10
-                        random.seed(new_seed)
-                        np.random.seed(new_seed)
-                        # 重新计算
-                        try:
-                            result = peglit_min.pegLIT(
-                                seq_spacer=preprocessed["spacer"].replace("U", "T"),
-                                seq_scaffold=preprocessed["scaffold"].replace("U", "T"),
-                                seq_template=preprocessed["template"].replace("U", "T"),
-                                seq_pbs=preprocessed["pbs"].replace("U", "T"),
-                                seq_motif=preprocessed["motif"].replace("U", "T"),
-                                linker_pattern=preprocessed["linker_pattern"].replace("U", "T"),
-                                ac_thresh=preprocessed["ac_thresh"],
-                                u_thresh=3, n_thresh=3, topn=100,
-                                epsilon=1e-2, num_repeats=10, num_steps=250,
-                                temp_init=0.15, temp_decay=0.95, bottleneck=1,
-                                seed=new_seed, sequences_to_avoid=None
-                            )
-                            final_linker = result.strip().replace("U", "T") if isinstance(result, str) else f"NNNNNNNN_{i}_{retry}"
-                        except:
-                            final_linker = f"NNNNNNNN_{i}_{retry}"
-
-                    # 6. 更新结果
-                    row["linker"] = final_linker
-                    used_linkers.add(final_linker)
-                    st.session_state.rows[i] = row  # 强制更新session_state
-
-                    # 7. 结果提示
-                    if not final_linker.startswith("NNNNNNNN_"):
-                        st.success(f"Row {i+1}: ✅ Linker - {final_linker}")
-                        success_count += 1
-                    else:
-                        st.warning(f"Row {i+1}: ⚠️ Default Linker - {final_linker}")
-
-                # 最终汇总
-                st.success(f"🎉 Calculations done! {success_count}/{total_rows} valid linkers generated.")
-                # 重置计算标记
-                st.session_state.run_calculation = False
-                # 强制刷新，显示最新linker结果
-                st.rerun()
-
-            except Exception as e:
-                st.error(f"❌ Global Error: {str(e)}")
-                st.exception(e)  # 显示完整错误栈，方便排查
-                st.session_state.run_calculation = False
+st.markdown("</div>", unsafe_allow_html=True)  # 关闭main-container
