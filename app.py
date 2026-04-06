@@ -50,6 +50,8 @@ if "results" not in st.session_state:
     st.session_state.results = {}
 if "calculated" not in st.session_state:
     st.session_state.calculated = False
+if "add_row_clicked" not in st.session_state:
+    st.session_state.add_row_clicked = False
 
 # ====================== 全局样式（复刻官网） ======================
 st.markdown("""
@@ -136,32 +138,32 @@ st.markdown("""
     cursor: not-allowed;
 }
 
-/* 按钮样式 */
+/* 自定义按钮样式 */
 .btn-primary {
-    background-color: #2563eb !important;
-    color: white !important;
-    border: none !important;
-    border-radius: 8px !important;
-    padding: 12px 24px !important;
-    font-size: 1.1rem !important;
-    font-weight: 600 !important;
-    cursor: pointer !important;
-    transition: background-color 0.2s !important;
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
 }
 .btn-primary:hover {
-    background-color: #1d4ed8 !important;
+    background-color: #1d4ed8;
 }
 .btn-secondary {
-    background-color: #f3f4f6 !important;
-    color: #1f2937 !important;
-    border: 1px solid #d1d5db !important;
-    border-radius: 8px !important;
-    padding: 8px 16px !important;
-    font-size: 0.9rem !important;
-    cursor: pointer !important;
+    background-color: #f3f4f6;
+    color: #1f2937;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    cursor: pointer;
 }
 .btn-secondary:hover {
-    background-color: #e5e7eb !important;
+    background-color: #e5e7eb;
 }
 
 /* 结果卡片 */
@@ -210,6 +212,25 @@ st.markdown("""
     padding: 8px;
     border-radius: 6px;
     border: 1px solid #d1d5db;
+}
+
+/* 修复Streamlit原生按钮样式 */
+.stButton > button {
+    border-radius: 8px !important;
+}
+.stButton > button[data-testid="baseButton-primary"] {
+    background-color: #2563eb !important;
+    color: white !important;
+    padding: 12px 24px !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+}
+.stButton > button[data-testid="baseButton-secondary"] {
+    background-color: #f3f4f6 !important;
+    color: #1f2937 !important;
+    border: 1px solid #d1d5db !important;
+    padding: 8px 16px !important;
+    font-size: 0.9rem !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -337,10 +358,11 @@ st.markdown("""
 st.markdown("<div class='input-card'>", unsafe_allow_html=True)
 st.markdown("<h3 style='font-size:1.5rem; font-weight:600; margin-bottom:16px;'>Sequence Input</h3>", unsafe_allow_html=True)
 
-# 序列输入表格
+# 序列输入表格 - 按钮行（修复class_参数错误）
 col_add, col_import, col_export = st.columns([1, 1, 1])
 with col_add:
-    if st.button("➕ Add New Row", key="add_row", class_="btn-secondary"):
+    # 修复点1：移除class_参数，改用type+自定义CSS
+    if st.button("➕ Add New Row", key="add_row", type="secondary", help="Add new row"):
         st.session_state.rows.append(DEFAULT_SEQ.copy())
         st.rerun()
 
@@ -379,12 +401,14 @@ with col_export:
     
     if st.session_state.rows:
         csv_base64 = export_to_csv()
+        # 修复点2：导出按钮移除class_，用原生type参数
         st.download_button(
             label="📤 Export CSV",
             data=base64.b64decode(csv_base64),
             file_name="peglit_sequences.csv",
             mime="text/csv",
-            class_="btn-secondary"
+            type="secondary",
+            key="export_csv"
         )
 
 # 渲染输入表格
@@ -471,9 +495,10 @@ for idx, row in enumerate(st.session_state.rows):
 
 st.markdown("</tbody></table>", unsafe_allow_html=True)
 
-# 计算按钮
+# 计算按钮（修复class_参数）
 st.markdown("<div style='text-align:center; margin:24px 0;'>", unsafe_allow_html=True)
-if st.button("START CALCULATION", key="start_calc", class_="btn-primary"):
+# 修复点3：START按钮移除class_，用type="primary"
+if st.button("START CALCULATION", key="start_calc", type="primary"):
     with st.spinner("🔄 Running pegLIT calculation... Please wait"):
         st.session_state.results = {}
         st.session_state.calculated = True
