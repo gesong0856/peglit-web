@@ -24,7 +24,7 @@ DEFAULT_SEQ = {
 
 if "rows" not in st.session_state:
     # 初始默认3行，满足多序列输入需求
-    st.session_state.rows = [DEFAULT_SEQ.copy() for _ in range(3)]
+    st.session_state.rows = [DEFAULT_SEQ.copy() for _ in range(1)]
     # 为每行生成唯一seed（核心：避免linker重复）
     for i in range(3):
         st.session_state.rows[i]["unique_seed"] = 2020 + i * 100
