@@ -5,7 +5,6 @@ import peglit_min
 import json
 import base64
 import asyncio
-import signal
 import time
 from io import BytesIO
 from contextlib import contextmanager
@@ -34,10 +33,10 @@ DEFAULT_SEQ = {
 # 长序列适配的长度限制（进一步放宽，满足更长序列需求）
 SEQ_LENGTH_LIMITS = {
     "spacer": 100,    # 进一步放宽到100bp
-    "template": 500,  # 进一步放宽到500bp
+    "template": 200,  # 进一步放宽到200bp
     "pbs": 80,        # 进一步放宽到80bp
     "motif": 500,     # 进一步放宽到500bp（支持更长motif）
-    "linker": 10     # 进一步放宽到100bp
+    "linker": 100     # 进一步放宽到100bp
 }
 
 DEFAULT_PARAMS = {
@@ -73,7 +72,7 @@ if "calc_status" not in st.session_state:
 if "calc_time" not in st.session_state:
     st.session_state.calc_time = {}  # 记录每行计算耗时
 
-# ====================== 核心工具函数（重点优化超时和长序列计算） ======================
+# ====================== 核心工具函数（修复signal线程问题，纯时间戳超时） ======================
 def update_seq_value(row_idx, seq_type):
     """实时更新序列值，添加长度过滤，避免超长输入"""
     if row_idx < len(st.session_state.rows):
@@ -84,24 +83,18 @@ def update_seq_value(row_idx, seq_type):
 
 @contextmanager
 def timeout(seconds):
-    """超时控制装饰器（适配5分钟+计算，兼容Windows/Linux）"""
-    # Windows系统兼容方案（signal.SIGALRM不支持）
-    if hasattr(signal, 'SIGALRM'):
-        def timeout_handler(signum, frame):
-            raise TimeoutError(f"Calculation exceeded {seconds//60}m {seconds%60}s")
-        signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(seconds)
-        try:
-            yield
-        finally:
-            signal.alarm(0)
-    else:
-        # Windows系统：用时间戳判断超时
-        start_time = time.time()
-        yield
-        elapsed = time.time() - start_time
-        if elapsed > seconds:
-            raise TimeoutError(f"Calculation exceeded {seconds//60}m {seconds%60}s (actual: {elapsed//60:.0f}m {elapsed%60:.0f}s)")
+    """纯时间戳实现的超时控制（彻底解决signal线程问题，兼容所有环境）"""
+    start_time = time.time()  # 记录开始时间
+    try:
+        yield  # 执行被装饰的代码块
+    finally:
+        # 计算已耗时，判断是否超时
+        elapsed_time = time.time() - start_time
+        if elapsed_time > seconds:
+            raise TimeoutError(
+                f"Calculation exceeded {seconds//60}m {seconds%60}s "
+                f"(actual: {elapsed_time//60:.0f}m {elapsed_time%60:.0f}s)"
+            )
 
 async def calculate_single_row(row_data, params, row_idx, status_callback):
     """异步计算单行序列（重点适配5分钟+长序列，记录耗时）"""
@@ -125,7 +118,8 @@ async def calculate_single_row(row_data, params, row_idx, status_callback):
         timeout_seconds = BASE_TIMEOUT + (seq_total_len // 100) * TIME_PER_100BP
         timeout_seconds = min(timeout_seconds, MAX_TIMEOUT)  # 不超过最大30分钟
         
-        # 带超时的核心计算（适配长序列，允许5分钟以上耗时）
+        # 带超时的核心计算（纯时间戳超时，无signal依赖）
+        calc_result = None
         with timeout(timeout_seconds):
             calc_result = peglit_min.pegLIT(
                 seq_spacer=spacer,
@@ -133,7 +127,8 @@ async def calculate_single_row(row_data, params, row_idx, status_callback):
                 seq_template=template,
                 seq_pbs=pbs,
                 seq_motif=motif,
-                linker_pattern=linker_pattern,** params
+                linker_pattern=linker_pattern,
+                **params
             )
         
         # 解析结果（兼容不同返回格式）
