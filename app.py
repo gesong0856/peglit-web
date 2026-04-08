@@ -180,6 +180,14 @@ st.markdown("""
     font-size: 0.9rem !important;
 }
 
+/* 功能按钮行样式（新增） */
+.func-btn-row {
+    margin: 20px 0;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
 /* 结果卡片 */
 .result-card {
     background: #ffffff;
@@ -335,61 +343,7 @@ st.markdown("""
 st.markdown("<div class='input-card'>", unsafe_allow_html=True)
 st.markdown("<h3 style='font-size:1.5rem; font-weight:600; margin-bottom:16px;'>Sequence Input</h3>", unsafe_allow_html=True)
 
-# 序列输入表格 - 功能按钮行
-col_add, col_import, col_export = st.columns([1, 1, 1])
-with col_add:
-    if st.button("➕ Add New Row", key="add_row", type="secondary", help="Add new sequence row"):
-        st.session_state.rows.append(DEFAULT_SEQ.copy())
-        st.rerun()
-
-with col_import:
-    uploaded_file = st.file_uploader(
-        "Import CSV",
-        type="csv",
-        label_visibility="collapsed",
-        key="csv_upload"
-    )
-    if uploaded_file is not None:
-        try:
-            df = pd.read_csv(uploaded_file)
-            df.columns = df.columns.str.lower()
-            required_cols = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
-            # 补充缺失列
-            for col in required_cols:
-                if col not in df.columns:
-                    df[col] = DEFAULT_SEQ[col]
-            df = df[required_cols]
-            
-            # 更新session state
-            st.session_state.rows = []
-            for _, row in df.iterrows():
-                st.session_state.rows.append(row.to_dict())
-            st.success("✅ CSV imported successfully!")
-            st.rerun()
-        except Exception as e:
-            st.error(f"❌ CSV import failed: {str(e)}")
-
-with col_export:
-    def export_to_csv():
-        """导出当前序列为CSV"""
-        df = pd.DataFrame(st.session_state.rows)
-        buffer = BytesIO()
-        df.to_csv(buffer, index=False, encoding="utf-8")
-        buffer.seek(0)
-        return base64.b64encode(buffer.getvalue()).decode()
-    
-    if st.session_state.rows:
-        csv_base64 = export_to_csv()
-        st.download_button(
-            label="📤 Export CSV",
-            data=base64.b64decode(csv_base64),
-            file_name="peglit_sequences.csv",
-            mime="text/csv",
-            type="secondary",
-            key="export_csv"
-        )
-
-# 渲染输入表格（核心修复：每个输入框绑定独立key+实时回调）
+# 渲染输入表格
 st.markdown("<table class='input-table'>", unsafe_allow_html=True)
 st.markdown("""
 <thead>
@@ -491,6 +445,63 @@ for row_idx, row_data in enumerate(st.session_state.rows):
     st.markdown("</tr>", unsafe_allow_html=True)
 
 st.markdown("</tbody></table>", unsafe_allow_html=True)
+
+# ========== 关键调整：将功能按钮行移到计算按钮上方 ==========
+# 序列输入表格 - 功能按钮行（移到计算按钮上方）
+st.markdown("<div class='func-btn-row'>", unsafe_allow_html=True)
+col_add, col_import, col_export = st.columns([1, 1, 1])
+with col_add:
+    if st.button("➕ Add New Row", key="add_row", type="secondary", help="Add new sequence row"):
+        st.session_state.rows.append(DEFAULT_SEQ.copy())
+        st.rerun()
+
+with col_import:
+    uploaded_file = st.file_uploader(
+        "Import CSV",
+        type="csv",
+        label_visibility="collapsed",
+        key="csv_upload"
+    )
+    if uploaded_file is not None:
+        try:
+            df = pd.read_csv(uploaded_file)
+            df.columns = df.columns.str.lower()
+            required_cols = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
+            # 补充缺失列
+            for col in required_cols:
+                if col not in df.columns:
+                    df[col] = DEFAULT_SEQ[col]
+            df = df[required_cols]
+            
+            # 更新session state
+            st.session_state.rows = []
+            for _, row in df.iterrows():
+                st.session_state.rows.append(row.to_dict())
+            st.success("✅ CSV imported successfully!")
+            st.rerun()
+        except Exception as e:
+            st.error(f"❌ CSV import failed: {str(e)}")
+
+with col_export:
+    def export_to_csv():
+        """导出当前序列为CSV"""
+        df = pd.DataFrame(st.session_state.rows)
+        buffer = BytesIO()
+        df.to_csv(buffer, index=False, encoding="utf-8")
+        buffer.seek(0)
+        return base64.b64encode(buffer.getvalue()).decode()
+    
+    if st.session_state.rows:
+        csv_base64 = export_to_csv()
+        st.download_button(
+            label="📤 Export CSV",
+            data=base64.b64decode(csv_base64),
+            file_name="peglit_sequences.csv",
+            mime="text/csv",
+            type="secondary",
+            key="export_csv"
+        )
+st.markdown("</div>", unsafe_allow_html=True)
 
 # 计算按钮 + 精准前置校验
 st.markdown("<div style='text-align:center; margin:24px 0;'>", unsafe_allow_html=True)
