@@ -51,13 +51,18 @@ if "results" not in st.session_state:
 if "calculated" not in st.session_state:
     st.session_state.calculated = False
 
-# ====================== 回调函数：同步输入框值 ======================
-def update_sequence(row_idx, seq_type, value):
-    """实时更新session_state中的序列值"""
+# ====================== 核心修复：实时同步输入值的回调函数 ======================
+def update_seq_value(row_idx, seq_type):
+    """
+    实时更新session_state中的序列值
+    解决Streamlit输入框值无法同步的核心问题
+    """
     if row_idx < len(st.session_state.rows):
-        st.session_state.rows[row_idx][seq_type] = value.strip().upper()
+        # 从输入框key中获取最新值，并做基础处理（去空格、转大写）
+        input_value = st.session_state.get(f"input_{seq_type}_{row_idx}", "").strip().upper()
+        st.session_state.rows[row_idx][seq_type] = input_value
 
-# ====================== 全局样式 ======================
+# ====================== 全局样式（含必填标记、输入框美化） ======================
 st.markdown("""
 <style>
 /* 全局重置 */
@@ -123,6 +128,7 @@ st.markdown("""
 .input-table td {
     padding: 12px 16px;
     border-bottom: 1px solid #e5e7eb;
+    vertical-align: top;
 }
 .input-table input {
     width: 100%;
@@ -131,6 +137,7 @@ st.markdown("""
     border-radius: 6px;
     font-size: 1rem;
     outline: none;
+    margin-top: 6px;
 }
 .input-table input:focus {
     border-color: #2563eb;
@@ -142,46 +149,35 @@ st.markdown("""
     cursor: not-allowed;
 }
 
-/* 输入框标签样式 */
+/* 输入框标签 + 必填标记 */
 .seq-label {
     font-size: 0.9rem;
     font-weight: 500;
     color: #4b5563;
-    margin-bottom: 6px;
     display: block;
 }
-/* 必填标记 */
 .required {
     color: #dc2626;
     margin-left: 4px;
 }
 
-/* 按钮样式 */
-.btn-primary {
-    background-color: #2563eb;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 12px 24px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.2s;
+/* 按钮样式优化 */
+.stButton > button {
+    border-radius: 8px !important;
 }
-.btn-primary:hover {
-    background-color: #1d4ed8;
+.stButton > button[data-testid="baseButton-primary"] {
+    background-color: #2563eb !important;
+    color: white !important;
+    padding: 12px 24px !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
 }
-.btn-secondary {
-    background-color: #f3f4f6;
-    color: #1f2937;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    padding: 8px 16px;
-    font-size: 0.9rem;
-    cursor: pointer;
-}
-.btn-secondary:hover {
-    background-color: #e5e7eb;
+.stButton > button[data-testid="baseButton-secondary"] {
+    background-color: #f3f4f6 !important;
+    color: #1f2937 !important;
+    border: 1px solid #d1d5db !important;
+    padding: 8px 16px !important;
+    font-size: 0.9rem !important;
 }
 
 /* 结果卡片 */
@@ -214,7 +210,7 @@ st.markdown("""
     margin: 16px 0;
 }
 
-/* 侧边栏样式 */
+/* 侧边栏参数样式 */
 .sidebar-param {
     margin-bottom: 16px;
 }
@@ -230,25 +226,6 @@ st.markdown("""
     padding: 8px;
     border-radius: 6px;
     border: 1px solid #d1d5db;
-}
-
-/* 修复Streamlit原生按钮样式 */
-.stButton > button {
-    border-radius: 8px !important;
-}
-.stButton > button[data-testid="baseButton-primary"] {
-    background-color: #2563eb !important;
-    color: white !important;
-    padding: 12px 24px !important;
-    font-size: 1.1rem !important;
-    font-weight: 600 !important;
-}
-.stButton > button[data-testid="baseButton-secondary"] {
-    background-color: #f3f4f6 !important;
-    color: #1f2937 !important;
-    border: 1px solid #d1d5db !important;
-    padding: 8px 16px !important;
-    font-size: 0.9rem !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -333,7 +310,7 @@ with st.sidebar:
         help="Number of annealing repeats"
     )
     
-    # 其他参数
+    # 随机种子
     st.session_state.params["seed"] = st.number_input(
         "Random Seed",
         min_value=1,
@@ -358,10 +335,10 @@ st.markdown("""
 st.markdown("<div class='input-card'>", unsafe_allow_html=True)
 st.markdown("<h3 style='font-size:1.5rem; font-weight:600; margin-bottom:16px;'>Sequence Input</h3>", unsafe_allow_html=True)
 
-# 序列输入表格 - 按钮行
+# 序列输入表格 - 功能按钮行
 col_add, col_import, col_export = st.columns([1, 1, 1])
 with col_add:
-    if st.button("➕ Add New Row", key="add_row", type="secondary", help="Add new row"):
+    if st.button("➕ Add New Row", key="add_row", type="secondary", help="Add new sequence row"):
         st.session_state.rows.append(DEFAULT_SEQ.copy())
         st.rerun()
 
@@ -377,11 +354,13 @@ with col_import:
             df = pd.read_csv(uploaded_file)
             df.columns = df.columns.str.lower()
             required_cols = ["spacer", "scaffold", "template", "pbs", "linker", "motif"]
+            # 补充缺失列
             for col in required_cols:
                 if col not in df.columns:
                     df[col] = DEFAULT_SEQ[col]
             df = df[required_cols]
             
+            # 更新session state
             st.session_state.rows = []
             for _, row in df.iterrows():
                 st.session_state.rows.append(row.to_dict())
@@ -392,9 +371,10 @@ with col_import:
 
 with col_export:
     def export_to_csv():
+        """导出当前序列为CSV"""
         df = pd.DataFrame(st.session_state.rows)
         buffer = BytesIO()
-        df.to_csv(buffer, index=False)
+        df.to_csv(buffer, index=False, encoding="utf-8")
         buffer.seek(0)
         return base64.b64encode(buffer.getvalue()).decode()
     
@@ -409,7 +389,7 @@ with col_export:
             key="export_csv"
         )
 
-# 渲染输入表格（核心修复：使用回调函数同步值）
+# 渲染输入表格（核心修复：每个输入框绑定独立key+实时回调）
 st.markdown("<table class='input-table'>", unsafe_allow_html=True)
 st.markdown("""
 <thead>
@@ -425,85 +405,86 @@ st.markdown("""
 <tbody>
 """, unsafe_allow_html=True)
 
-for idx, row in enumerate(st.session_state.rows):
+# 遍历渲染每一行输入框
+for row_idx, row_data in enumerate(st.session_state.rows):
     st.markdown("<tr>", unsafe_allow_html=True)
     
-    # Spacer列（必填）- 使用on_change回调同步值
+    # 1. Spacer列（必填）
     st.markdown("<td>", unsafe_allow_html=True)
     st.markdown("<span class='seq-label'>Spacer <span class='required'>*</span></span>", unsafe_allow_html=True)
     st.text_input(
-        label=f"spacer_{idx}",
-        value=row["spacer"],
+        label=f"spacer_{row_idx}",
+        value=row_data["spacer"],
         label_visibility="collapsed",
-        key=f"spacer_{idx}",
-        on_change=update_sequence,
-        args=(idx, "spacer", st.session_state[f"spacer_{idx}"])
+        key=f"input_spacer_{row_idx}",  # 独立key确保值不冲突
+        on_change=update_seq_value,
+        args=(row_idx, "spacer")  # 回调传参：行号+序列类型
     )
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # Scaffold列
+    # 2. Scaffold列（可选，有默认值）
     st.markdown("<td>", unsafe_allow_html=True)
     st.markdown("<span class='seq-label'>Scaffold</span>", unsafe_allow_html=True)
     st.text_input(
-        label=f"scaffold_{idx}",
-        value=row["scaffold"],
+        label=f"scaffold_{row_idx}",
+        value=row_data["scaffold"],
         label_visibility="collapsed",
-        key=f"scaffold_{idx}",
-        on_change=update_sequence,
-        args=(idx, "scaffold", st.session_state[f"scaffold_{idx}"])
+        key=f"input_scaffold_{row_idx}",
+        on_change=update_seq_value,
+        args=(row_idx, "scaffold")
     )
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # Template列（必填）
+    # 3. Template列（必填）
     st.markdown("<td>", unsafe_allow_html=True)
     st.markdown("<span class='seq-label'>Template <span class='required'>*</span></span>", unsafe_allow_html=True)
     st.text_input(
-        label=f"template_{idx}",
-        value=row["template"],
+        label=f"template_{row_idx}",
+        value=row_data["template"],
         label_visibility="collapsed",
-        key=f"template_{idx}",
-        on_change=update_sequence,
-        args=(idx, "template", st.session_state[f"template_{idx}"])
+        key=f"input_template_{row_idx}",
+        on_change=update_seq_value,
+        args=(row_idx, "template")
     )
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # PBS列（必填）
+    # 4. PBS列（必填）
     st.markdown("<td>", unsafe_allow_html=True)
     st.markdown("<span class='seq-label'>PBS <span class='required'>*</span></span>", unsafe_allow_html=True)
     st.text_input(
-        label=f"pbs_{idx}",
-        value=row["pbs"],
+        label=f"pbs_{row_idx}",
+        value=row_data["pbs"],
         label_visibility="collapsed",
-        key=f"pbs_{idx}",
-        on_change=update_sequence,
-        args=(idx, "pbs", st.session_state[f"pbs_{idx}"])
+        key=f"input_pbs_{row_idx}",
+        on_change=update_seq_value,
+        args=(row_idx, "pbs")
     )
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # Linker列
+    # 5. Linker Pattern列（可选，有默认值）
     st.markdown("<td>", unsafe_allow_html=True)
     st.markdown("<span class='seq-label'>Linker Pattern</span>", unsafe_allow_html=True)
     st.text_input(
-        label=f"linker_{idx}",
-        value=row["linker"],
+        label=f"linker_{row_idx}",
+        value=row_data["linker"],
         label_visibility="collapsed",
-        disabled=st.session_state.calculated,
-        key=f"linker_{idx}",
-        on_change=update_sequence,
-        args=(idx, "linker", st.session_state[f"linker_{idx}"])
+        disabled=st.session_state.calculated,  # 计算后锁定
+        key=f"input_linker_{row_idx}",
+        on_change=update_seq_value,
+        args=(row_idx, "linker")
     )
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # Motif列（必填）
+    # 6. Motif列（必填）
     st.markdown("<td>", unsafe_allow_html=True)
     st.markdown("<span class='seq-label'>Motif <span class='required'>*</span></span>", unsafe_allow_html=True)
     st.text_input(
-        label=f"motif_{idx}",
-        value=row["motif"],
+        label=f"motif_{row_idx}",
+        value=row_data["motif"],
         label_visibility="collapsed",
-        key=f"motif_{idx}",
-        on_change=update_sequence,
-        args=(idx, "motif", st.session_state[f"motif_{idx}"])
+        key=f"input_motif_{row_idx}",
+        on_change=update_seq_value,
+        args=(row_idx, "motif")
     )
     st.markdown("</td>", unsafe_allow_html=True)
     
@@ -511,53 +492,51 @@ for idx, row in enumerate(st.session_state.rows):
 
 st.markdown("</tbody></table>", unsafe_allow_html=True)
 
-# 计算按钮 + 前置校验
+# 计算按钮 + 精准前置校验
 st.markdown("<div style='text-align:center; margin:24px 0;'>", unsafe_allow_html=True)
 if st.button("START CALCULATION", key="start_calc", type="primary"):
-    # 第一步：前置校验（明确提示缺失字段）
-    validation_passed = True
-    missing_fields = {}
+    # 第一步：前置校验（逐行检查必填字段）
+    validation_error = False
+    error_msg = "❌ Please fill in the required fields:\n"
     
-    for i, row in enumerate(st.session_state.rows):
-        row_missing = []
-        # 检查必填字段
-        if not row["spacer"].strip():
-            row_missing.append("Spacer")
-        if not row["template"].strip():
-            row_missing.append("Template")
-        if not row["pbs"].strip():
-            row_missing.append("PBS")
-        if not row["motif"].strip():
-            row_missing.append("Motif")
+    for row_idx, row_data in enumerate(st.session_state.rows):
+        missing_fields = []
+        # 检查必填字段是否为空（去空格后）
+        if not row_data["spacer"].strip():
+            missing_fields.append("Spacer")
+        if not row_data["template"].strip():
+            missing_fields.append("Template")
+        if not row_data["pbs"].strip():
+            missing_fields.append("PBS")
+        if not row_data["motif"].strip():
+            missing_fields.append("Motif")
         
-        if row_missing:
-            validation_passed = False
-            missing_fields[i] = row_missing
+        # 收集缺失字段信息
+        if missing_fields:
+            validation_error = True
+            error_msg += f"- Row {row_idx+1}: {', '.join(missing_fields)}\n"
     
-    # 如果校验失败，提示具体缺失字段
-    if not validation_passed:
-        error_msg = "❌ Please fill in the required fields:\n"
-        for row_idx, fields in missing_fields.items():
-            error_msg += f"- Row {row_idx+1}: {', '.join(fields)}\n"
+    # 校验失败：提示具体缺失字段
+    if validation_error:
         st.error(error_msg)
+    # 校验通过：执行计算逻辑
     else:
-        # 校验通过，执行计算
         with st.spinner("🔄 Running pegLIT calculation... Please wait"):
             st.session_state.results = {}
             st.session_state.calculated = True
             
             try:
-                for i, row in enumerate(st.session_state.rows):
-                    # 获取输入序列（确保值是最新的）
-                    spacer = row["spacer"].upper().strip()
-                    scaffold = row["scaffold"].upper().strip() or DEFAULT_SEQ["scaffold"]
-                    template = row["template"].upper().strip()
-                    pbs = row["pbs"].upper().strip()
-                    motif = row["motif"].upper().strip()
-                    linker_pattern = row["linker"].upper().strip() or DEFAULT_SEQ["linker"]
+                for row_idx, row_data in enumerate(st.session_state.rows):
+                    # 获取最终序列值（兜底默认值）
+                    spacer = row_data["spacer"].upper().strip()
+                    scaffold = row_data["scaffold"].upper().strip() or DEFAULT_SEQ["scaffold"]
+                    template = row_data["template"].upper().strip()
+                    pbs = row_data["pbs"].upper().strip()
+                    motif = row_data["motif"].upper().strip()
+                    linker_pattern = row_data["linker"].upper().strip() or DEFAULT_SEQ["linker"]
                     
-                    # 调用核心计算逻辑
-                    result = peglit_min.pegLIT(
+                    # 调用pegLIT核心计算函数
+                    calc_result = peglit_min.pegLIT(
                         seq_spacer=spacer,
                         seq_scaffold=scaffold,
                         seq_template=template,
@@ -567,46 +546,48 @@ if st.button("START CALCULATION", key="start_calc", type="primary"):
                         **st.session_state.params
                     )
                     
-                    # 解析结果
+                    # 解析计算结果
                     row_result = {"status": "success", "data": {}}
                     best_linker = DEFAULT_SEQ["linker"]
                     
-                    if isinstance(result, dict):
-                        best_linker = result.get("best_linker", result.get("linker", best_linker))
+                    # 兼容不同返回格式（dict/list/str）
+                    if isinstance(calc_result, dict):
+                        best_linker = calc_result.get("best_linker", calc_result.get("linker", best_linker))
                         row_result["data"]["linker"] = best_linker
-                        # 预测二级结构
+                        # 预测RNA二级结构（RNAfold）
                         full_seq = f"{scaffold}{best_linker}{motif}"
-                        (ss, mfe) = RNA.fold(full_seq)
+                        ss, mfe = RNA.fold(full_seq)
                         row_result["data"]["secondary_structure"] = ss
                         row_result["data"]["mfe"] = mfe
-                        row_result["data"]["candidates"] = result.get("candidates", [])
+                        row_result["data"]["candidates"] = calc_result.get("candidates", [])
                         
-                    elif isinstance(result, list) and len(result) > 0:
-                        best_linker = result[0] if isinstance(result[0], str) else result[0].get("linker", best_linker)
+                    elif isinstance(calc_result, list) and len(calc_result) > 0:
+                        best_linker = calc_result[0] if isinstance(calc_result[0], str) else calc_result[0].get("linker", best_linker)
                         row_result["data"]["linker"] = best_linker
                         full_seq = f"{scaffold}{best_linker}{motif}"
-                        (ss, mfe) = RNA.fold(full_seq)
+                        ss, mfe = RNA.fold(full_seq)
                         row_result["data"]["secondary_structure"] = ss
                         row_result["data"]["mfe"] = mfe
                         
-                    elif isinstance(result, str):
-                        best_linker = result
+                    elif isinstance(calc_result, str):
+                        best_linker = calc_result
                         row_result["data"]["linker"] = best_linker
                         full_seq = f"{scaffold}{best_linker}{motif}"
-                        (ss, mfe) = RNA.fold(full_seq)
+                        ss, mfe = RNA.fold(full_seq)
                         row_result["data"]["secondary_structure"] = ss
                         row_result["data"]["mfe"] = mfe
                     
-                    # 更新结果
-                    st.session_state.rows[i]["linker"] = best_linker
-                    st.session_state.results[i] = row_result
+                    # 更新最优linker到session state
+                    st.session_state.rows[row_idx]["linker"] = best_linker
+                    st.session_state.results[row_idx] = row_result
                 
+                # 计算完成提示
                 st.success("✅ Calculation completed successfully!")
                 st.rerun()
                 
             except Exception as e:
                 st.error(f"❌ Calculation failed: {str(e)}")
-                st.exception(e)
+                st.exception(e)  # 显示详细异常信息
                 st.session_state.calculated = False
 
 st.markdown("</div>", unsafe_allow_html=True)
@@ -617,14 +598,15 @@ if st.session_state.calculated and st.session_state.results:
     st.markdown("<div class='result-card'>", unsafe_allow_html=True)
     st.markdown("<h3>Calculation Results</h3>", unsafe_allow_html=True)
     
-    for idx, result in st.session_state.results.items():
-        st.markdown(f"<h4 style='margin:20px 0 10px;'>Row {idx+1}</h4>", unsafe_allow_html=True)
+    for row_idx, result in st.session_state.results.items():
+        st.markdown(f"<h4 style='margin:20px 0 10px;'>Row {row_idx+1}</h4>", unsafe_allow_html=True)
         
+        # 异常结果处理
         if result["status"] == "error":
-            st.error(f"❌ {result['message']}")
+            st.error(f"❌ {result.get('message', 'Unknown error')}")
             continue
         
-        # 核心结果展示
+        # 正常结果展示
         result_data = result["data"]
         col1, col2 = st.columns([1, 2])
         
@@ -639,7 +621,7 @@ if st.session_state.calculated and st.session_state.results:
             st.markdown("<strong>RNA Secondary Structure:</strong>", unsafe_allow_html=True)
             st.markdown(f"<div class='rna-structure'>{result_data['secondary_structure']}</div>", unsafe_allow_html=True)
         
-        # 候选linker列表
+        # 候选Linker列表（如果有）
         if "candidates" in result_data and result_data["candidates"]:
             st.markdown("<strong>Top Candidate Linkers:</strong>", unsafe_allow_html=True)
             candidates_df = pd.DataFrame(result_data["candidates"])
@@ -649,6 +631,7 @@ if st.session_state.calculated and st.session_state.results:
                 hide_index=True
             )
         
+        # 分隔线
         st.markdown("<hr style='margin:20px 0; border:1px solid #e5e7eb;'>", unsafe_allow_html=True)
     
     st.markdown("</div>", unsafe_allow_html=True)
