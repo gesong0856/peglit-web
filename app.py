@@ -433,6 +433,7 @@ for idx, row in enumerate(st.session_state.rows):
     # Spacer列
     st.markdown("<td>", unsafe_allow_html=True)
     st.text_input(
+        label=f"spacer_{idx}",
         value=row["spacer"],
         label_visibility="collapsed",
         key=f"spacer_{idx}"
