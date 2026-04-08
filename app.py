@@ -33,10 +33,10 @@ DEFAULT_SEQ = {
 # 长序列适配的长度限制（进一步放宽，满足更长序列需求）
 SEQ_LENGTH_LIMITS = {
     "spacer": 100,    # 进一步放宽到100bp
-    "template": 500,  # 进一步放宽到200bp
+    "template": 500,  # 进一步放宽到500bp
     "pbs": 80,        # 进一步放宽到80bp
     "motif": 500,     # 进一步放宽到500bp（支持更长motif）
-    "linker": 8     # 进一步放宽到100bp
+    "linker": 8     # 进一步放宽到8bp
 }
 
 DEFAULT_PARAMS = {
