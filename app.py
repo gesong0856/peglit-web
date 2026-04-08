@@ -50,10 +50,14 @@ if "results" not in st.session_state:
     st.session_state.results = {}
 if "calculated" not in st.session_state:
     st.session_state.calculated = False
-if "add_row_clicked" not in st.session_state:
-    st.session_state.add_row_clicked = False
 
-# ====================== 全局样式（复刻官网） ======================
+# ====================== 回调函数：同步输入框值 ======================
+def update_sequence(row_idx, seq_type, value):
+    """实时更新session_state中的序列值"""
+    if row_idx < len(st.session_state.rows):
+        st.session_state.rows[row_idx][seq_type] = value.strip().upper()
+
+# ====================== 全局样式 ======================
 st.markdown("""
 <style>
 /* 全局重置 */
@@ -138,7 +142,7 @@ st.markdown("""
     cursor: not-allowed;
 }
 
-/* 输入框上方的序列名称样式 */
+/* 输入框标签样式 */
 .seq-label {
     font-size: 0.9rem;
     font-weight: 500;
@@ -146,8 +150,13 @@ st.markdown("""
     margin-bottom: 6px;
     display: block;
 }
+/* 必填标记 */
+.required {
+    color: #dc2626;
+    margin-left: 4px;
+}
 
-/* 自定义按钮样式 */
+/* 按钮样式 */
 .btn-primary {
     background-color: #2563eb;
     color: white;
@@ -244,12 +253,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ====================== 侧边栏参数配置（复刻官网） ======================
+# ====================== 侧边栏参数配置 ======================
 with st.sidebar:
     st.markdown("<h2 style='font-size:1.8rem; font-weight:700; margin-bottom:20px;'>Parameters</h2>", unsafe_allow_html=True)
     
     # 能量阈值参数
-    st.markdown("<div class='sidebar-param'>", unsafe_allow_html=True)
     st.session_state.params["ac_thresh"] = st.number_input(
         "AC Threshold",
         min_value=0.0,
@@ -258,9 +266,7 @@ with st.sidebar:
         step=0.05,
         help="Acceptable threshold for AC content"
     )
-    st.markdown("</div>", unsafe_allow_html=True)
     
-    st.markdown("<div class='sidebar-param'>", unsafe_allow_html=True)
     st.session_state.params["u_thresh"] = st.number_input(
         "U Threshold",
         min_value=0,
@@ -269,9 +275,7 @@ with st.sidebar:
         step=1,
         help="Maximum allowed consecutive U's"
     )
-    st.markdown("</div>", unsafe_allow_html=True)
     
-    st.markdown("<div class='sidebar-param'>", unsafe_allow_html=True)
     st.session_state.params["n_thresh"] = st.number_input(
         "N Threshold",
         min_value=0,
@@ -280,12 +284,10 @@ with st.sidebar:
         step=1,
         help="Maximum allowed consecutive N's"
     )
-    st.markdown("</div>", unsafe_allow_html=True)
     
     # 模拟退火参数
     st.markdown("<h3 style='font-size:1.2rem; font-weight:600; margin:20px 0 10px;'>Simulated Annealing</h3>", unsafe_allow_html=True)
     
-    st.markdown("<div class='sidebar-param'>", unsafe_allow_html=True)
     st.session_state.params["topn"] = st.number_input(
         "Top N",
         min_value=10,
@@ -294,9 +296,7 @@ with st.sidebar:
         step=10,
         help="Number of top candidates to keep"
     )
-    st.markdown("</div>", unsafe_allow_html=True)
     
-    st.markdown("<div class='sidebar-param'>", unsafe_allow_html=True)
     st.session_state.params["temp_init"] = st.number_input(
         "Initial Temperature",
         min_value=0.05,
@@ -305,9 +305,7 @@ with st.sidebar:
         step=0.01,
         help="Initial temperature for annealing"
     )
-    st.markdown("</div>", unsafe_allow_html=True)
     
-    st.markdown("<div class='sidebar-param'>", unsafe_allow_html=True)
     st.session_state.params["temp_decay"] = st.number_input(
         "Temperature Decay",
         min_value=0.85,
@@ -316,9 +314,7 @@ with st.sidebar:
         step=0.01,
         help="Temperature decay rate per step"
     )
-    st.markdown("</div>", unsafe_allow_html=True)
     
-    st.markdown("<div class='sidebar-param'>", unsafe_allow_html=True)
     st.session_state.params["num_steps"] = st.number_input(
         "Number of Steps",
         min_value=50,
@@ -327,9 +323,7 @@ with st.sidebar:
         step=50,
         help="Number of annealing steps"
     )
-    st.markdown("</div>", unsafe_allow_html=True)
     
-    st.markdown("<div class='sidebar-param'>", unsafe_allow_html=True)
     st.session_state.params["num_repeats"] = st.number_input(
         "Number of Repeats",
         min_value=1,
@@ -338,10 +332,8 @@ with st.sidebar:
         step=1,
         help="Number of annealing repeats"
     )
-    st.markdown("</div>", unsafe_allow_html=True)
     
     # 其他参数
-    st.markdown("<div class='sidebar-param'>", unsafe_allow_html=True)
     st.session_state.params["seed"] = st.number_input(
         "Random Seed",
         min_value=1,
@@ -350,7 +342,6 @@ with st.sidebar:
         step=1,
         help="Random seed for reproducibility"
     )
-    st.markdown("</div>", unsafe_allow_html=True)
 
 # ====================== 主界面 ======================
 st.markdown("<div class='main-container'>", unsafe_allow_html=True)
@@ -367,10 +358,9 @@ st.markdown("""
 st.markdown("<div class='input-card'>", unsafe_allow_html=True)
 st.markdown("<h3 style='font-size:1.5rem; font-weight:600; margin-bottom:16px;'>Sequence Input</h3>", unsafe_allow_html=True)
 
-# 序列输入表格 - 按钮行（修复class_参数错误）
+# 序列输入表格 - 按钮行
 col_add, col_import, col_export = st.columns([1, 1, 1])
 with col_add:
-    # 修复点1：移除class_参数，改用type+自定义CSS
     if st.button("➕ Add New Row", key="add_row", type="secondary", help="Add new row"):
         st.session_state.rows.append(DEFAULT_SEQ.copy())
         st.rerun()
@@ -410,7 +400,6 @@ with col_export:
     
     if st.session_state.rows:
         csv_base64 = export_to_csv()
-        # 修复点2：导出按钮移除class_，用原生type参数
         st.download_button(
             label="📤 Export CSV",
             data=base64.b64decode(csv_base64),
@@ -420,188 +409,205 @@ with col_export:
             key="export_csv"
         )
 
-# 渲染输入表格
+# 渲染输入表格（核心修复：使用回调函数同步值）
 st.markdown("<table class='input-table'>", unsafe_allow_html=True)
 st.markdown("""
 <thead>
     <tr>
-        <th>Spacer</th>
+        <th>Spacer <span class='required'>*</span></th>
         <th>Scaffold</th>
-        <th>Template</th>
-        <th>PBS</th>
+        <th>Template <span class='required'>*</span></th>
+        <th>PBS <span class='required'>*</span></th>
         <th>Linker Pattern</th>
-        <th>Motif</th>
+        <th>Motif <span class='required'>*</span></th>
     </tr>
 </thead>
 <tbody>
 """, unsafe_allow_html=True)
 
-# ========== 核心修复：同步输入框值到session_state.rows + 添加输入框上方序列名称 ==========
 for idx, row in enumerate(st.session_state.rows):
     st.markdown("<tr>", unsafe_allow_html=True)
     
-    # Spacer列 - 添加序列名称 + 同步输入值
+    # Spacer列（必填）- 使用on_change回调同步值
     st.markdown("<td>", unsafe_allow_html=True)
-    st.markdown("<span class='seq-label'>Spacer</span>", unsafe_allow_html=True)  # 输入框上方的名称
-    spacer_val = st.text_input(
+    st.markdown("<span class='seq-label'>Spacer <span class='required'>*</span></span>", unsafe_allow_html=True)
+    st.text_input(
         label=f"spacer_{idx}",
         value=row["spacer"],
         label_visibility="collapsed",
-        key=f"spacer_{idx}"
+        key=f"spacer_{idx}",
+        on_change=update_sequence,
+        args=(idx, "spacer", st.session_state[f"spacer_{idx}"])
     )
-    st.session_state.rows[idx]["spacer"] = spacer_val  # 同步输入值
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # Scaffold列 - 添加序列名称 + 同步输入值
+    # Scaffold列
     st.markdown("<td>", unsafe_allow_html=True)
-    st.markdown("<span class='seq-label'>Scaffold</span>", unsafe_allow_html=True)  # 输入框上方的名称
-    scaffold_val = st.text_input(
+    st.markdown("<span class='seq-label'>Scaffold</span>", unsafe_allow_html=True)
+    st.text_input(
         label=f"scaffold_{idx}",
         value=row["scaffold"],
         label_visibility="collapsed",
-        key=f"scaffold_{idx}"
+        key=f"scaffold_{idx}",
+        on_change=update_sequence,
+        args=(idx, "scaffold", st.session_state[f"scaffold_{idx}"])
     )
-    st.session_state.rows[idx]["scaffold"] = scaffold_val  # 同步输入值
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # Template列 - 添加序列名称 + 同步输入值
+    # Template列（必填）
     st.markdown("<td>", unsafe_allow_html=True)
-    st.markdown("<span class='seq-label'>Template</span>", unsafe_allow_html=True)  # 输入框上方的名称
-    template_val = st.text_input(
+    st.markdown("<span class='seq-label'>Template <span class='required'>*</span></span>", unsafe_allow_html=True)
+    st.text_input(
         label=f"template_{idx}",
         value=row["template"],
         label_visibility="collapsed",
-        key=f"template_{idx}"
+        key=f"template_{idx}",
+        on_change=update_sequence,
+        args=(idx, "template", st.session_state[f"template_{idx}"])
     )
-    st.session_state.rows[idx]["template"] = template_val  # 同步输入值
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # PBS列 - 添加序列名称 + 同步输入值
+    # PBS列（必填）
     st.markdown("<td>", unsafe_allow_html=True)
-    st.markdown("<span class='seq-label'>PBS</span>", unsafe_allow_html=True)  # 输入框上方的名称
-    pbs_val = st.text_input(
+    st.markdown("<span class='seq-label'>PBS <span class='required'>*</span></span>", unsafe_allow_html=True)
+    st.text_input(
         label=f"pbs_{idx}",
         value=row["pbs"],
         label_visibility="collapsed",
-        key=f"pbs_{idx}"
+        key=f"pbs_{idx}",
+        on_change=update_sequence,
+        args=(idx, "pbs", st.session_state[f"pbs_{idx}"])
     )
-    st.session_state.rows[idx]["pbs"] = pbs_val  # 同步输入值
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # Linker列 - 添加序列名称 + 同步输入值
+    # Linker列
     st.markdown("<td>", unsafe_allow_html=True)
-    st.markdown("<span class='seq-label'>Linker Pattern</span>", unsafe_allow_html=True)  # 输入框上方的名称
-    linker_val = st.text_input(
+    st.markdown("<span class='seq-label'>Linker Pattern</span>", unsafe_allow_html=True)
+    st.text_input(
         label=f"linker_{idx}",
         value=row["linker"],
         label_visibility="collapsed",
-        disabled=st.session_state.calculated,  # 计算后锁定
-        key=f"linker_{idx}"
+        disabled=st.session_state.calculated,
+        key=f"linker_{idx}",
+        on_change=update_sequence,
+        args=(idx, "linker", st.session_state[f"linker_{idx}"])
     )
-    st.session_state.rows[idx]["linker"] = linker_val  # 同步输入值
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # Motif列 - 添加序列名称 + 同步输入值
+    # Motif列（必填）
     st.markdown("<td>", unsafe_allow_html=True)
-    st.markdown("<span class='seq-label'>Motif</span>", unsafe_allow_html=True)  # 输入框上方的名称
-    motif_val = st.text_input(
+    st.markdown("<span class='seq-label'>Motif <span class='required'>*</span></span>", unsafe_allow_html=True)
+    st.text_input(
         label=f"motif_{idx}",
         value=row["motif"],
         label_visibility="collapsed",
-        key=f"motif_{idx}"
+        key=f"motif_{idx}",
+        on_change=update_sequence,
+        args=(idx, "motif", st.session_state[f"motif_{idx}"])
     )
-    st.session_state.rows[idx]["motif"] = motif_val  # 同步输入值
     st.markdown("</td>", unsafe_allow_html=True)
     
     st.markdown("</tr>", unsafe_allow_html=True)
 
 st.markdown("</tbody></table>", unsafe_allow_html=True)
 
-# 计算按钮（修复class_参数）
+# 计算按钮 + 前置校验
 st.markdown("<div style='text-align:center; margin:24px 0;'>", unsafe_allow_html=True)
-# 修复点3：START按钮移除class_，用type="primary"
 if st.button("START CALCULATION", key="start_calc", type="primary"):
-    with st.spinner("🔄 Running pegLIT calculation... Please wait"):
-        st.session_state.results = {}
-        st.session_state.calculated = True
+    # 第一步：前置校验（明确提示缺失字段）
+    validation_passed = True
+    missing_fields = {}
+    
+    for i, row in enumerate(st.session_state.rows):
+        row_missing = []
+        # 检查必填字段
+        if not row["spacer"].strip():
+            row_missing.append("Spacer")
+        if not row["template"].strip():
+            row_missing.append("Template")
+        if not row["pbs"].strip():
+            row_missing.append("PBS")
+        if not row["motif"].strip():
+            row_missing.append("Motif")
         
-        try:
-            for i, row in enumerate(st.session_state.rows):
-                # 获取输入序列（兜底+格式化）
-                spacer = row.get("spacer", "").upper().strip()
-                scaffold = row.get("scaffold", DEFAULT_SEQ["scaffold"]).upper().strip()
-                template = row.get("template", "").upper().strip()
-                pbs = row.get("pbs", "").upper().strip()
-                motif = row.get("motif", "").upper().strip()
-                linker_pattern = row.get("linker", DEFAULT_SEQ["linker"]).upper().strip()
-                
-                # 空值校验
-                if not all([spacer, scaffold, template, pbs, motif]):
-                    st.session_state.results[i] = {
-                        "status": "error",
-                        "message": "Missing required sequence (Spacer/Template/PBS/Motif)"
-                    }
-                    continue
-                
-                # 调用核心计算逻辑（复用第一个参考的peglit_min）
-                result = peglit_min.pegLIT(
-                    seq_spacer=spacer,
-                    seq_scaffold=scaffold,
-                    seq_template=template,
-                    seq_pbs=pbs,
-                    seq_motif=motif,
-                    linker_pattern=linker_pattern,** st.session_state.params
-                )
-                
-                # 解析结果（兼容官网输出格式）
-                row_result = {"status": "success", "data": {}}
-                
-                # 1. 提取最优linker（对齐官网优先级）
-                best_linker = DEFAULT_SEQ["linker"]
-                if isinstance(result, dict):
-                    best_linker = result.get("best_linker", result.get("linker", best_linker))
-                    row_result["data"]["linker"] = best_linker
-                    
-                    # 2. 提取二级结构（RNAfold预测）
-                    full_seq = f"{scaffold}{best_linker}{motif}"
-                    (ss, mfe) = RNA.fold(full_seq)
-                    row_result["data"]["secondary_structure"] = ss
-                    row_result["data"]["mfe"] = mfe
-                    
-                    # 3. 提取候选列表
-                    row_result["data"]["candidates"] = result.get("candidates", [])
-                    
-                elif isinstance(result, list) and len(result) > 0:
-                    best_linker = result[0] if isinstance(result[0], str) else result[0].get("linker", best_linker)
-                    row_result["data"]["linker"] = best_linker
-                    
-                    # 补充二级结构
-                    full_seq = f"{scaffold}{best_linker}{motif}"
-                    (ss, mfe) = RNA.fold(full_seq)
-                    row_result["data"]["secondary_structure"] = ss
-                    row_result["data"]["mfe"] = mfe
-                    
-                elif isinstance(result, str):
-                    best_linker = result
-                    row_result["data"]["linker"] = best_linker
-                    
-                    # 补充二级结构
-                    full_seq = f"{scaffold}{best_linker}{motif}"
-                    (ss, mfe) = RNA.fold(full_seq)
-                    row_result["data"]["secondary_structure"] = ss
-                    row_result["data"]["mfe"] = mfe
-                
-                # 更新session state
-                st.session_state.rows[i]["linker"] = best_linker
-                st.session_state.results[i] = row_result
+        if row_missing:
+            validation_passed = False
+            missing_fields[i] = row_missing
+    
+    # 如果校验失败，提示具体缺失字段
+    if not validation_passed:
+        error_msg = "❌ Please fill in the required fields:\n"
+        for row_idx, fields in missing_fields.items():
+            error_msg += f"- Row {row_idx+1}: {', '.join(fields)}\n"
+        st.error(error_msg)
+    else:
+        # 校验通过，执行计算
+        with st.spinner("🔄 Running pegLIT calculation... Please wait"):
+            st.session_state.results = {}
+            st.session_state.calculated = True
             
-            st.success("✅ Calculation completed successfully!")
-            st.rerun()
-            
-        except Exception as e:
-            st.error(f"❌ Calculation failed: {str(e)}")
-            st.exception(e)
-            st.session_state.calculated = False
+            try:
+                for i, row in enumerate(st.session_state.rows):
+                    # 获取输入序列（确保值是最新的）
+                    spacer = row["spacer"].upper().strip()
+                    scaffold = row["scaffold"].upper().strip() or DEFAULT_SEQ["scaffold"]
+                    template = row["template"].upper().strip()
+                    pbs = row["pbs"].upper().strip()
+                    motif = row["motif"].upper().strip()
+                    linker_pattern = row["linker"].upper().strip() or DEFAULT_SEQ["linker"]
+                    
+                    # 调用核心计算逻辑
+                    result = peglit_min.pegLIT(
+                        seq_spacer=spacer,
+                        seq_scaffold=scaffold,
+                        seq_template=template,
+                        seq_pbs=pbs,
+                        seq_motif=motif,
+                        linker_pattern=linker_pattern,
+                        **st.session_state.params
+                    )
+                    
+                    # 解析结果
+                    row_result = {"status": "success", "data": {}}
+                    best_linker = DEFAULT_SEQ["linker"]
+                    
+                    if isinstance(result, dict):
+                        best_linker = result.get("best_linker", result.get("linker", best_linker))
+                        row_result["data"]["linker"] = best_linker
+                        # 预测二级结构
+                        full_seq = f"{scaffold}{best_linker}{motif}"
+                        (ss, mfe) = RNA.fold(full_seq)
+                        row_result["data"]["secondary_structure"] = ss
+                        row_result["data"]["mfe"] = mfe
+                        row_result["data"]["candidates"] = result.get("candidates", [])
+                        
+                    elif isinstance(result, list) and len(result) > 0:
+                        best_linker = result[0] if isinstance(result[0], str) else result[0].get("linker", best_linker)
+                        row_result["data"]["linker"] = best_linker
+                        full_seq = f"{scaffold}{best_linker}{motif}"
+                        (ss, mfe) = RNA.fold(full_seq)
+                        row_result["data"]["secondary_structure"] = ss
+                        row_result["data"]["mfe"] = mfe
+                        
+                    elif isinstance(result, str):
+                        best_linker = result
+                        row_result["data"]["linker"] = best_linker
+                        full_seq = f"{scaffold}{best_linker}{motif}"
+                        (ss, mfe) = RNA.fold(full_seq)
+                        row_result["data"]["secondary_structure"] = ss
+                        row_result["data"]["mfe"] = mfe
+                    
+                    # 更新结果
+                    st.session_state.rows[i]["linker"] = best_linker
+                    st.session_state.results[i] = row_result
+                
+                st.success("✅ Calculation completed successfully!")
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"❌ Calculation failed: {str(e)}")
+                st.exception(e)
+                st.session_state.calculated = False
 
 st.markdown("</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)  # 关闭input-card
@@ -633,7 +639,7 @@ if st.session_state.calculated and st.session_state.results:
             st.markdown("<strong>RNA Secondary Structure:</strong>", unsafe_allow_html=True)
             st.markdown(f"<div class='rna-structure'>{result_data['secondary_structure']}</div>", unsafe_allow_html=True)
         
-        # 候选linker列表（如果有）
+        # 候选linker列表
         if "candidates" in result_data and result_data["candidates"]:
             st.markdown("<strong>Top Candidate Linkers:</strong>", unsafe_allow_html=True)
             candidates_df = pd.DataFrame(result_data["candidates"])
