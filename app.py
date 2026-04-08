@@ -138,6 +138,15 @@ st.markdown("""
     cursor: not-allowed;
 }
 
+/* 输入框上方的序列名称样式 */
+.seq-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #4b5563;
+    margin-bottom: 6px;
+    display: block;
+}
+
 /* 自定义按钮样式 */
 .btn-primary {
     background-color: #2563eb;
@@ -427,68 +436,81 @@ st.markdown("""
 <tbody>
 """, unsafe_allow_html=True)
 
+# ========== 核心修复：同步输入框值到session_state.rows + 添加输入框上方序列名称 ==========
 for idx, row in enumerate(st.session_state.rows):
     st.markdown("<tr>", unsafe_allow_html=True)
     
-    # Spacer列
+    # Spacer列 - 添加序列名称 + 同步输入值
     st.markdown("<td>", unsafe_allow_html=True)
-    st.text_input(
+    st.markdown("<span class='seq-label'>Spacer</span>", unsafe_allow_html=True)  # 输入框上方的名称
+    spacer_val = st.text_input(
         label=f"spacer_{idx}",
         value=row["spacer"],
         label_visibility="collapsed",
         key=f"spacer_{idx}"
     )
+    st.session_state.rows[idx]["spacer"] = spacer_val  # 同步输入值
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # Scaffold列
+    # Scaffold列 - 添加序列名称 + 同步输入值
     st.markdown("<td>", unsafe_allow_html=True)
-    st.text_input(
+    st.markdown("<span class='seq-label'>Scaffold</span>", unsafe_allow_html=True)  # 输入框上方的名称
+    scaffold_val = st.text_input(
         label=f"scaffold_{idx}",
         value=row["scaffold"],
         label_visibility="collapsed",
         key=f"scaffold_{idx}"
     )
+    st.session_state.rows[idx]["scaffold"] = scaffold_val  # 同步输入值
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # Template列
+    # Template列 - 添加序列名称 + 同步输入值
     st.markdown("<td>", unsafe_allow_html=True)
-    st.text_input(
+    st.markdown("<span class='seq-label'>Template</span>", unsafe_allow_html=True)  # 输入框上方的名称
+    template_val = st.text_input(
         label=f"template_{idx}",
         value=row["template"],
         label_visibility="collapsed",
         key=f"template_{idx}"
     )
+    st.session_state.rows[idx]["template"] = template_val  # 同步输入值
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # PBS列
+    # PBS列 - 添加序列名称 + 同步输入值
     st.markdown("<td>", unsafe_allow_html=True)
-    st.text_input(
+    st.markdown("<span class='seq-label'>PBS</span>", unsafe_allow_html=True)  # 输入框上方的名称
+    pbs_val = st.text_input(
         label=f"pbs_{idx}",
         value=row["pbs"],
         label_visibility="collapsed",
         key=f"pbs_{idx}"
     )
+    st.session_state.rows[idx]["pbs"] = pbs_val  # 同步输入值
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # Linker列
+    # Linker列 - 添加序列名称 + 同步输入值
     st.markdown("<td>", unsafe_allow_html=True)
-    st.text_input(
+    st.markdown("<span class='seq-label'>Linker Pattern</span>", unsafe_allow_html=True)  # 输入框上方的名称
+    linker_val = st.text_input(
         label=f"linker_{idx}",
         value=row["linker"],
         label_visibility="collapsed",
         disabled=st.session_state.calculated,  # 计算后锁定
         key=f"linker_{idx}"
     )
+    st.session_state.rows[idx]["linker"] = linker_val  # 同步输入值
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # Motif列
+    # Motif列 - 添加序列名称 + 同步输入值
     st.markdown("<td>", unsafe_allow_html=True)
-    st.text_input(
+    st.markdown("<span class='seq-label'>Motif</span>", unsafe_allow_html=True)  # 输入框上方的名称
+    motif_val = st.text_input(
         label=f"motif_{idx}",
         value=row["motif"],
         label_visibility="collapsed",
         key=f"motif_{idx}"
     )
+    st.session_state.rows[idx]["motif"] = motif_val  # 同步输入值
     st.markdown("</td>", unsafe_allow_html=True)
     
     st.markdown("</tr>", unsafe_allow_html=True)
@@ -528,8 +550,7 @@ if st.button("START CALCULATION", key="start_calc", type="primary"):
                     seq_template=template,
                     seq_pbs=pbs,
                     seq_motif=motif,
-                    linker_pattern=linker_pattern,
-                    **st.session_state.params
+                    linker_pattern=linker_pattern,** st.session_state.params
                 )
                 
                 # 解析结果（兼容官网输出格式）
