@@ -397,9 +397,9 @@ st.markdown("""
     <tr>
         <th>Spacer <span class='required'>*</span> <span class='length-hint'>(≤100bp)</span></th>
         <th>Scaffold</th>
-        <th>Template <span class='required'>*</span> <span class='length-hint'>(≤200bp)</span></th>
+        <th>Template <span class='required'>*</span> <span class='length-hint'>(≤500bp)</span></th>
         <th>PBS <span class='required'>*</span> <span class='length-hint'>(≤80bp)</span></th>
-        <th>Linker Pattern <span class='length-hint'>(≤100bp)</span></th>
+        <th>Linker Pattern <span class='length-hint'>(≤8bp)</span></th>
         <th>Motif <span class='required'>*</span> <span class='length-hint'>(≤500bp)</span></th>
     </tr>
 </thead>
