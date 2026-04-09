@@ -382,7 +382,7 @@ st.markdown("""
     1. Calculation time for long sequences (>200bp) may exceed 5 minutes; 
     2. RNAfold is simplified/skipped for sequences >500bp; 
     3. Reduce 'Top N/Number of Steps' in sidebar for faster results;
-    4. Maximum calculation time per row: 30 minutes.
+    4. Maximum calculation time per row: 60 minutes.
 </div>
 """, unsafe_allow_html=True)
 
@@ -395,12 +395,12 @@ st.markdown("<table class='input-table'>", unsafe_allow_html=True)
 st.markdown("""
 <thead>
     <tr>
-        <th>Spacer <span class='required'>*</span> <span class='length-hint'>(≤100bp)</span></th>
+        <th>Spacer <span class='required'>*</span> <span class='length-hint'>(≤200bp)</span></th>
         <th>Scaffold</th>
-        <th>Template <span class='required'>*</span> <span class='length-hint'>(≤500bp)</span></th>
-        <th>PBS <span class='required'>*</span> <span class='length-hint'>(≤80bp)</span></th>
+        <th>Template <span class='required'>*</span> <span class='length-hint'>(≤800bp)</span></th>
+        <th>PBS <span class='required'>*</span> <span class='length-hint'>(≤100bp)</span></th>
         <th>Linker Pattern <span class='length-hint'>(≤8bp)</span></th>
-        <th>Motif <span class='required'>*</span> <span class='length-hint'>(≤500bp)</span></th>
+        <th>Motif <span class='required'>*</span> <span class='length-hint'>(≤800bp)</span></th>
     </tr>
 </thead>
 <tbody>
