@@ -593,7 +593,6 @@ if st.button("START CALCULATION (Long Seq Support)", key="start_calc", type="pri
         st.error(error_msg)
     else:
         # 初始化计算状态
-        st.session_state.calc_status = "running"
         st.session_state.results = {}
         st.session_state.calculated = False
         
