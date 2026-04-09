@@ -32,10 +32,10 @@ DEFAULT_SEQ = {
 
 # 长序列适配的长度限制（进一步放宽，满足更长序列需求）
 SEQ_LENGTH_LIMITS = {
-    "spacer": 100,    # 进一步放宽到100bp
-    "template": 500,  # 进一步放宽到500bp
-    "pbs": 80,        # 进一步放宽到80bp
-    "motif": 500,     # 进一步放宽到500bp（支持更长motif）
+    "spacer": 200,    # 进一步放宽到200bp
+    "template": 800,  # 进一步放宽到800bp
+    "pbs": 100,        # 进一步放宽到100bp
+    "motif": 800,     # 进一步放宽到800bp（支持更长motif）
     "linker": 8     # 进一步放宽到8bp
 }
 
@@ -55,7 +55,7 @@ DEFAULT_PARAMS = {
 
 # 关键配置：长序列计算超时时间（适配5分钟以上，单位：秒）
 BASE_TIMEOUT = 600  # 基础10分钟
-MAX_TIMEOUT = 1800  # 最大30分钟
+MAX_TIMEOUT = 3600  # 最大60分钟
 TIME_PER_100BP = 60  # 每100bp增加1分钟超时
 
 # ====================== 会话状态初始化（新增计算耗时记录） ======================
@@ -410,7 +410,7 @@ st.markdown("""
 for row_idx, row_data in enumerate(st.session_state.rows):
     st.markdown("<tr>", unsafe_allow_html=True)
     
-    # 1. Spacer列（必填，长序列放宽到100bp）
+    # 1. Spacer列（必填，长序列放宽到200bp）
     st.markdown("<td>", unsafe_allow_html=True)
     st.markdown("<span class='seq-label'>Spacer <span class='required'>*</span></span>", unsafe_allow_html=True)
     st.text_input(
@@ -437,7 +437,7 @@ for row_idx, row_data in enumerate(st.session_state.rows):
     )
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # 3. Template列（必填，长序列放宽到200bp）
+    # 3. Template列（必填，长序列放宽到800bp）
     st.markdown("<td>", unsafe_allow_html=True)
     st.markdown("<span class='seq-label'>Template <span class='required'>*</span></span>", unsafe_allow_html=True)
     st.text_input(
@@ -451,7 +451,7 @@ for row_idx, row_data in enumerate(st.session_state.rows):
     )
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # 4. PBS列（必填，长序列放宽到80bp）
+    # 4. PBS列（必填，长序列放宽到100bp）
     st.markdown("<td>", unsafe_allow_html=True)
     st.markdown("<span class='seq-label'>PBS <span class='required'>*</span></span>", unsafe_allow_html=True)
     st.text_input(
@@ -465,7 +465,7 @@ for row_idx, row_data in enumerate(st.session_state.rows):
     )
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # 5. Linker Pattern列（可选，长序列放宽到100bp）
+    # 5. Linker Pattern列（可选，长序列放宽到8bp）
     st.markdown("<td>", unsafe_allow_html=True)
     st.markdown("<span class='seq-label'>Linker Pattern</span>", unsafe_allow_html=True)
     st.text_input(
@@ -480,7 +480,7 @@ for row_idx, row_data in enumerate(st.session_state.rows):
     )
     st.markdown("</td>", unsafe_allow_html=True)
     
-    # 6. Motif列（必填，长序列放宽到500bp）
+    # 6. Motif列（必填，长序列放宽到800bp）
     st.markdown("<td>", unsafe_allow_html=True)
     st.markdown("<span class='seq-label'>Motif <span class='required'>*</span></span>", unsafe_allow_html=True)
     st.text_input(
